@@ -7,6 +7,6 @@ export class AppController {
 
   @Get()
   async test(): Promise<any> {
-    return await this.appService.login();
+    return await this.appService.getSomeData();
   }
 }

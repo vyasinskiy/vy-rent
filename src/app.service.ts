@@ -1,31 +1,67 @@
 import { Injectable } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
 
 @Injectable()
 export class AppService {
-  constructor(private readonly httpService: HttpService) {}
+  private cookie: string | null;
 
-  async login(): Promise<any> {
-    const data = {
-      login: '89002638502',
-      password: 'Setpass2021kv',
-    };
-    const response = await this.httpService
-      .post(
-        'https://xn--j1ab.xn--80aaaf3bi1ahsd.xn--80asehdb/web/account/login',
-        JSON.stringify(data),
+  constructor(private configService: ConfigService) {
+    this.cookie = null;
+  }
+
+  async getSomeData() {
+    const cookie = await this.getCookie();
+    // TODO: do some request
+    return cookie;
+  }
+
+  async getCookie() {
+    if (!this.cookie) {
+      this.cookie = await this.requestCookie();
+    }
+
+    return this.cookie;
+  }
+
+  // TODO: add typing
+  async requestCookie(): Promise<any> {
+    const { userName, token } = await this.requestToken();
+    try {
+      const response = await axios.post(
+        'https://xn--j1ab.xn--80aaaf3bi1ahsd.xn--80asehdb/web/Account/Authorize',
+        JSON.stringify({ userName, token }),
         {
           headers: {
             'content-type': 'application/json',
           },
         },
-      )
-      .pipe(map((resp) => res.data));
-    const res = await response.pipe();
-    console.log(res);
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    // debugger;
-    // return response;
+      );
+
+      // TODO: get response set-cookie header
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async requestToken() {
+    const login = this.configService.get<string>('LOGIN');
+    const password = this.configService.get<string>('PASSWORD');
+
+    try {
+      const { data } = await axios.post(
+        'https://xn--j1ab.xn--80aaaf3bi1ahsd.xn--80asehdb/web/account/login',
+        JSON.stringify({ login, password }),
+        {
+          headers: {
+            'content-type': 'application/json',
+          },
+        },
+      );
+
+      return data;
+    } catch (error) {
+      console.error(error);
+    }
   }
 }
