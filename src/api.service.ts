@@ -42,7 +42,7 @@ interface AccountData {
 }
 
 @Injectable()
-export class DataProviderService {
+export class ApiService {
   constructor(private readonly authService: AuthService) {}
   async getAppartmentList() {
     try {
@@ -55,10 +55,10 @@ export class DataProviderService {
         },
       );
 
-      debugger;
       return data;
     } catch (error) {
-      console.error(error);
+      debugger;
+      console.error(error.message);
     }
   }
 
@@ -73,10 +73,10 @@ export class DataProviderService {
         },
       );
 
-      debugger;
       return data;
     } catch (error) {
-      console.error(error);
+      debugger;
+      console.error(error.message);
     }
   }
 
@@ -91,28 +91,33 @@ export class DataProviderService {
         },
       );
 
-      debugger;
       return data;
     } catch (error) {
-      console.error(error);
+      debugger;
+      console.error(error.message);
     }
   }
 
   async getInvoice(accountId: number, period: number) {
     try {
-      const { data } = await axios.get<AccountData[]>(
+      const { data } = await axios.get(
         `${baseProviderURL}/personal/Accruals/GetInvoice/${accountId}?period=${period}`,
         {
           headers: {
             cookie: await this.authService.getCookie(),
           },
+          responseType: 'stream',
         },
       );
 
-      debugger;
-      return data;
+      return {
+        accountId,
+        period,
+        data,
+      };
     } catch (error) {
-      console.error(error);
+      debugger;
+      console.error(error.message);
     }
   }
 }
