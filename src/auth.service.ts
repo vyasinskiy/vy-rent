@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import { baseProviderURL } from './assets/constants';
 
 interface TokenData {
   userName: string;
@@ -28,7 +29,7 @@ export class AuthService {
 
     try {
       const response = await axios.post(
-        'https://xn--j1ab.xn--80aaaf3bi1ahsd.xn--80asehdb/web/Account/Authorize',
+        `${baseProviderURL}/web/Account/Authorize`,
         JSON.stringify({ userName, token }),
         {
           headers: {
@@ -55,7 +56,7 @@ export class AuthService {
 
     try {
       const { data } = await axios.post<TokenData>(
-        'https://xn--j1ab.xn--80aaaf3bi1ahsd.xn--80asehdb/web/account/login',
+        `${baseProviderURL}/web/account/login`,
         JSON.stringify({ login, password }),
         {
           headers: {

@@ -1,12 +1,12 @@
 import { Controller, Get } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import { DataProviderService } from './data-provider.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly dataProvider: DataProviderService) {}
 
   @Get()
   async test(): Promise<any> {
-    return await this.authService.getCookie();
+    const list = await this.dataProvider.getAppartmentList();
   }
 }
