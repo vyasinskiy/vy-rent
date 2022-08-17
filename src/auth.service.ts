@@ -2,31 +2,30 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
+interface TokenData {
+  userName: string;
+  token: string;
+}
+
 @Injectable()
-export class AppService {
+export class AuthService {
   private cookie: string | null;
 
   constructor(private configService: ConfigService) {
     this.cookie = null;
   }
 
-  async getSomeData() {
-    const cookie = await this.getCookie();
-    // TODO: do some request
-    return cookie;
-  }
-
-  async getCookie() {
-    if (!this.cookie) {
+  async getCookie(forceUpdate?) {
+    if (!this.cookie || forceUpdate) {
       this.cookie = await this.requestCookie();
     }
 
     return this.cookie;
   }
 
-  // TODO: add typing
-  async requestCookie(): Promise<any> {
+  async requestCookie() {
     const { userName, token } = await this.requestToken();
+
     try {
       const response = await axios.post(
         'https://xn--j1ab.xn--80aaaf3bi1ahsd.xn--80asehdb/web/Account/Authorize',
@@ -38,7 +37,13 @@ export class AppService {
         },
       );
 
-      // TODO: get response set-cookie header
+      const cookies = response.headers['set-cookie'];
+
+      if (cookies.length > 0) {
+        console.warn('Received more than 1 cookie from provider');
+      }
+
+      return cookies[0];
     } catch (error) {
       console.error(error);
     }
@@ -49,7 +54,7 @@ export class AppService {
     const password = this.configService.get<string>('PASSWORD');
 
     try {
-      const { data } = await axios.post(
+      const { data } = await axios.post<TokenData>(
         'https://xn--j1ab.xn--80aaaf3bi1ahsd.xn--80asehdb/web/account/login',
         JSON.stringify({ login, password }),
         {
