@@ -52,14 +52,14 @@ export class ApiService {
     return data;
   }
 
-  async getAppartmentAccounts(id) {
-    const URL = `${baseProviderURL}/personal/Account/ListByApartment?apartmentId=${id}`;
+  async getAppartmentAccounts(appartmentId) {
+    const URL = `${baseProviderURL}/personal/Account/ListByApartment?apartmentId=${appartmentId}`;
     const { data } = await this.doRequest<AppartmentAccount>(URL);
-    return { apparmentId: id, accounts: data };
+    return { appartmentId, accounts: data };
   }
 
-  async getAccountData(id) {
-    const URL = `${baseProviderURL}/personal/Accruals/List?accountId=${id}`;
+  async getAccountAccruals(accountId) {
+    const URL = `${baseProviderURL}/personal/Accruals/List?accountId=${accountId}`;
     const { data } = await this.doRequest<AccountData>(URL);
     return data;
   }

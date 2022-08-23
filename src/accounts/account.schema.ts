@@ -1,10 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { BaseDocument, BaseSchema } from '../schemas/base.schema';
 
-export type AccountDocument = Account & BaseDocument;
+export type AccountDocument = Account & Document;
 
-@Schema()
-export class Account extends BaseSchema {
+@Schema({ id: true })
+export class Account {
+  @Prop()
+  _id: number;
+
   @Prop()
   appartmentId: number;
 
@@ -16,9 +18,6 @@ export class Account extends BaseSchema {
 
   @Prop()
   address: string;
-
-  @Prop()
-  number: string;
 
   @Prop()
   debt: string;

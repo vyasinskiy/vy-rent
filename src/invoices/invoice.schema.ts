@@ -1,10 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { BaseDocument, BaseSchema } from '../schemas/base.schema';
 
-export type InvoiceDocument = Invoice & BaseDocument;
+export type InvoiceDocument = Invoice & Document;
 
-@Schema()
-export class Invoice extends BaseSchema {
+@Schema({ id: true })
+export class Invoice {
+  @Prop()
+  _id: number;
+
   @Prop()
   appartmentId: number;
 

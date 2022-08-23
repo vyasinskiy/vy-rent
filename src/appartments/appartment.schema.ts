@@ -1,15 +1,21 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { BaseDocument, BaseSchema } from './base.schema';
+import { Document } from 'mongoose';
 
-export type AppartmentDocument = Appartment & BaseDocument;
+export type AppartmentDocument = Appartment & Document;
 
-@Schema()
-export class Appartment extends BaseSchema {
+@Schema({ id: true })
+export class Appartment {
+  @Prop()
+  _id: number;
+
   @Prop()
   address: string;
 
   @Prop()
   description: string;
+
+  @Prop()
+  accounts: number[];
 
   @Prop()
   debt: number;

@@ -1,10 +1,17 @@
 import { Controller, Get } from '@nestjs/common';
-import { getCurrentPeriodCode } from './assets/helpers';
-import { DataSourceService } from './data-sources/data-source.service';
+import { AccountsService } from './accounts/accounts.service';
+import { AccrualsService } from './accruals/accruals.service';
+import { AppartmentsService } from './appartments/appartments.service';
+import { InvoiceService } from './invoices/invoices.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly dataSourceService: DataSourceService) {}
+  constructor(
+    private readonly invoiceService: InvoiceService,
+    private readonly appartmentsService: AppartmentsService,
+    private readonly accountsService: AccountsService,
+    private readonly accrualsService: AccrualsService,
+  ) {}
 
   // данные по каждому аккаунту (по месяцам) должны сохраняться в БД
   // запрос по аккаунтам должен производиться каждый день
@@ -28,8 +35,19 @@ export class AppController {
   //   );
   // }
 
-  @Get('/update-all')
-  async check(): Promise<any> {
-    return await this.dataSourceService.updateAll();
+  @Get('/test')
+  async test(): Promise<any> {
+    const appartmentsList = await this.appartmentsService.getAppartmentsList();
+    for (const appartment of appartmentsList) {
+      const accounts = await this.accountsService.getAccountsForAppartment(
+        appartment._id,
+      );
+
+      for await (const account of accounts) {
+        await this.accrualsService.updateAccrualsForAccount(account._id);
+      }
+    }
+    // return await this.invoiceService.updateInvoicesForPeriod(303569, 202207);
+    // return await this.appartmentsService.updateAppartmentsList();
   }
 }
