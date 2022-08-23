@@ -21,22 +21,15 @@ export class AppController {
 
   // в дальнейшем добавить админку с регистрацией новых арендаторов, генерацией договоров, расторжением договоров
 
-  @Get('/current-month-invoices')
-  async getCurrentMonthInvoices(): Promise<any> {
-    return await this.dataSourceService.getInvoicesForMonth(
-      getCurrentPeriodCode(),
-    );
-  }
+  // @Get('/current-month-invoices')
+  // async getCurrentMonthInvoices(): Promise<any> {
+  //   return await this.dataSourceService.getInvoicesForMonth(
+  //     getCurrentPeriodCode(),
+  //   );
+  // }
 
-  @Get('/check')
+  @Get('/update-all')
   async check(): Promise<any> {
     return await this.dataSourceService.updateAll();
-    // await this.dataSourceService.create('appartments', {
-    //   providerId: 2,
-    //   address: 'address',
-    //   description: 'description',
-    //   debt: 1,
-    // });
-    // await this.dataSourceService.actualize
   }
 }

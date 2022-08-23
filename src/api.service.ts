@@ -13,7 +13,7 @@ interface Appartment {
   discountMessage: null;
 }
 
-interface AppartmentAccount {
+export interface AppartmentAccount {
   id: number;
   isApproved: boolean;
   organizationName: string;
@@ -66,7 +66,6 @@ export class ApiService {
 
   async getInvoice(accountId: number, period: number) {
     const URL = `${baseProviderURL}/personal/Accruals/GetInvoice/${accountId}?period=${period}`;
-    // TODO: pdf typings
     const { data } = await this.doRequest<any>(URL, {
       responseType: 'stream',
     });
@@ -74,7 +73,7 @@ export class ApiService {
     return {
       accountId,
       period,
-      data,
+      data: data,
     };
   }
 

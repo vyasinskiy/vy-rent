@@ -2,9 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ApiService } from 'src/api.service';
-import { Account, AccountDocument } from './schemas/account.schema';
+import { getCurrentPeriodCode } from 'src/assets/helpers';
+import { Account, AccountDocument } from './accounts/account.schema';
 import { Appartment, AppartmentDocument } from './schemas/appartment.schema';
-import { Invoice, InvoiceDocument } from './schemas/invoice.schema';
+import { InvoiceService } from './invoices/invoices.service';
 
 @Injectable()
 export class DataSourceService {
@@ -13,18 +14,16 @@ export class DataSourceService {
     private appartmentModel: Model<AppartmentDocument>,
     @InjectModel(Account.name)
     private accountModel: Model<AccountDocument>,
-    @InjectModel(Invoice.name)
-    private invoiceModel: Model<InvoiceDocument>,
-    private readonly apiService: ApiService,
+    private readonly apiService: ApiService, // private readonly invoiceService: InvoiceService,
   ) {}
 
-  async getInvoicesForMonth(periodCode) {
-    return await this.invoiceModel.find({
-      filter: {
-        periodCode,
-      },
-    });
-  }
+  // async getInvoicesForMonth(periodCode) {
+  //   return await this.invoiceModel.find({
+  //     filter: {
+  //       periodCode,
+  //     },
+  //   });
+  // }
 
   async updateAll() {
     const appartmentList = await this.apiService.getAppartmentList();
@@ -50,13 +49,15 @@ export class DataSourceService {
     );
     const accountsData = (await Promise.all(accountsRequests)).flat();
 
+    const currentPeriod = getCurrentPeriodCode();
+
     for (const account of accountsData) {
       const { apparmentId, accounts } = account;
       for await (const account of accounts) {
         const _id = account.id;
         const accountEntity = await this.accountModel.findOne({ _id });
         if (!accountEntity) {
-          const createdEntity = await new this.accountModel({
+          const newAccountEntity = await new this.accountModel({
             _id: account.id,
             appartmentId: apparmentId,
             organizationName: account.organizationName,
@@ -66,25 +67,18 @@ export class DataSourceService {
             debt: account.debt,
             type: account.type,
           });
-          await createdEntity.save();
+          await newAccountEntity.save();
         } else {
           // recursively check changies
         }
+
+        // const invoice = await this.invoiceService.getInvoiceForPeriod(
+        //   apparmentId,
+        //   account,
+        //   currentPeriod,
+        // );
       }
     }
-
-    // for await (const account of accounts) {
-    //   try {
-    //     const currentPeriod = Number(getCurrentPeriod());
-    //     const { accountId, period, data } = await this.apiService.getInvoice(
-    //       account.id,
-    //       currentPeriod,
-    //     );
-    //     await writeFile(`${accountId}-${period}.pdf`, data);
-    //   } catch {
-    //     debugger;
-    //   }
-    // }
   }
 
   async create(entity, dto): Promise<any> {

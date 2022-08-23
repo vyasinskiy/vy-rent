@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { BaseDocument, BaseSchema } from './base.schema';
+import { BaseDocument, BaseSchema } from '../schemas/base.schema';
 
 export type InvoiceDocument = Invoice & BaseDocument;
 

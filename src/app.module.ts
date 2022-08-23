@@ -10,8 +10,11 @@ import {
   Appartment,
   AppartmentSchema,
 } from './data-sources/schemas/appartment.schema';
-import { Invoice, InvoicesSchema } from './data-sources/schemas/invoice.schema';
-import { Account, AccountSchema } from './data-sources/schemas/account.schema';
+import {
+  Invoice,
+  InvoicesSchema,
+} from './data-sources/invoices/invoice.schema';
+import { Account, AccountSchema } from './data-sources/accounts/account.schema';
 
 @Module({
   imports: [
