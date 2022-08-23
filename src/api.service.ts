@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import { baseProviderURL } from './assets/constants';
-import { AuthService } from './auth.service';
+import { AuthService } from './auth/auth.service';
 
 interface Appartment {
   id: number;
@@ -44,80 +44,55 @@ interface AccountData {
 @Injectable()
 export class ApiService {
   constructor(private readonly authService: AuthService) {}
-  async getAppartmentList() {
-    try {
-      const { data } = await axios.get<Appartment[]>(
-        `${baseProviderURL}/personal/apartment`,
-        {
-          headers: {
-            cookie: await this.authService.getCookie(),
-          },
-        },
-      );
 
-      return data;
-    } catch (error) {
-      debugger;
-      console.error(error.message);
-    }
+  async getAppartmentList() {
+    const URL = `${baseProviderURL}/personal/apartment`;
+    const { data } = await this.doRequest<Appartment>(URL);
+
+    return data;
   }
 
   async getAppartmentAccounts(id) {
-    try {
-      const { data } = await axios.get<AppartmentAccount[]>(
-        `${baseProviderURL}/personal/Account/ListByApartment?apartmentId=${id}`,
-        {
-          headers: {
-            cookie: await this.authService.getCookie(),
-          },
-        },
-      );
-
-      return data;
-    } catch (error) {
-      debugger;
-      console.error(error.message);
-    }
+    const URL = `${baseProviderURL}/personal/Account/ListByApartment?apartmentId=${id}`;
+    const { data } = await this.doRequest<AppartmentAccount>(URL);
+    return { apparmentId: id, accounts: data };
   }
 
   async getAccountData(id) {
-    try {
-      const { data } = await axios.get<AccountData[]>(
-        `${baseProviderURL}/personal/Accruals/List?accountId=${id}`,
-        {
-          headers: {
-            cookie: await this.authService.getCookie(),
-          },
-        },
-      );
-
-      return data;
-    } catch (error) {
-      debugger;
-      console.error(error.message);
-    }
+    const URL = `${baseProviderURL}/personal/Accruals/List?accountId=${id}`;
+    const { data } = await this.doRequest<AccountData>(URL);
+    return data;
   }
 
   async getInvoice(accountId: number, period: number) {
-    try {
-      const { data } = await axios.get(
-        `${baseProviderURL}/personal/Accruals/GetInvoice/${accountId}?period=${period}`,
-        {
-          headers: {
-            cookie: await this.authService.getCookie(),
-          },
-          responseType: 'stream',
-        },
-      );
+    const URL = `${baseProviderURL}/personal/Accruals/GetInvoice/${accountId}?period=${period}`;
+    // TODO: pdf typings
+    const { data } = await this.doRequest<any>(URL, {
+      responseType: 'stream',
+    });
 
-      return {
-        accountId,
-        period,
-        data,
-      };
+    return {
+      accountId,
+      period,
+      data,
+    };
+  }
+
+  // TODO: any => axions options type
+  async doRequest<T>(url, options?: Record<string, any>) {
+    const cookie = await this.authService.getCookie();
+
+    try {
+      const response = await axios.get<T[]>(url, {
+        headers: {
+          cookie,
+        },
+        ...options,
+      });
+
+      return response;
     } catch (error) {
-      debugger;
-      console.error(error.message);
+      console.error(`Error while fetching URL: ${url}: ${error}`);
     }
   }
 }

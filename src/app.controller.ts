@@ -1,11 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiService } from './api.service';
-import { writeFile } from 'fs/promises';
-import { getCurrentPeriod } from './assets/helpers';
+import { getCurrentPeriodCode } from './assets/helpers';
+import { DataSourceService } from './data-sources/data-source.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly apiService: ApiService) {}
+  constructor(private readonly dataSourceService: DataSourceService) {}
 
   // данные по каждому аккаунту (по месяцам) должны сохраняться в БД
   // запрос по аккаунтам должен производиться каждый день
@@ -24,24 +23,20 @@ export class AppController {
 
   @Get('/current-month-invoices')
   async getCurrentMonthInvoices(): Promise<any> {
-    const appartmentList = await this.apiService.getAppartmentList();
-
-    const accountsRequests = appartmentList.map((appartment) =>
-      this.apiService.getAppartmentAccounts(appartment.id),
+    return await this.dataSourceService.getInvoicesForMonth(
+      getCurrentPeriodCode(),
     );
-    const accounts = (await Promise.all(accountsRequests)).flat();
+  }
 
-    for await (const account of accounts) {
-      try {
-        const currentPeriod = Number(getCurrentPeriod());
-        const { accountId, period, data } = await this.apiService.getInvoice(
-          account.id,
-          currentPeriod,
-        );
-        await writeFile(`${accountId}-${period}.pdf`, data);
-      } catch {
-        debugger;
-      }
-    }
+  @Get('/check')
+  async check(): Promise<any> {
+    return await this.dataSourceService.updateAll();
+    // await this.dataSourceService.create('appartments', {
+    //   providerId: 2,
+    //   address: 'address',
+    //   description: 'description',
+    //   debt: 1,
+    // });
+    // await this.dataSourceService.actualize
   }
 }

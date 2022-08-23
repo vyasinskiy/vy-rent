@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import { baseProviderURL } from './assets/constants';
+import { baseProviderURL } from '../assets/constants';
 
 interface TokenData {
   userName: string;

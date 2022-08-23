@@ -1,13 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { BaseDocument, BaseSchema } from './base.schema';
 
-export type AppartmentDocument = Appartment & Document;
+export type AppartmentDocument = Appartment & BaseDocument;
 
-@Schema({ id: true })
-export class Appartment {
-  @Prop()
-  providerId: number;
-
+@Schema()
+export class Appartment extends BaseSchema {
   @Prop()
   address: string;
 
