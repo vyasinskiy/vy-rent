@@ -37,16 +37,44 @@ export class AppController {
 
   @Get('/test')
   async test(): Promise<any> {
-    const appartmentsList = await this.appartmentsService.getAppartmentsList();
-    for (const appartment of appartmentsList) {
-      const accounts = await this.accountsService.getAccountsForAppartment(
-        appartment._id,
-      );
-
-      for await (const account of accounts) {
-        await this.accrualsService.updateAccrualsForAccount(account._id);
-      }
+    const accounts = await this.accountsService.getAllAccounts();
+    for await (const account of accounts) {
+      await this.accrualsService.updateAccrualsForAccount(account._id);
     }
+    // const appartmentsList = await this.appartmentsService.getAppartmentsList();
+    // for (const appartment of appartmentsList) {
+    //   const accounts = await this.accountsService.getAccountsForAppartment(
+    //     appartment._id,
+    //   );
+
+    //   for await (const account of accounts) {
+    //     await this.accrualsService.updateAccrualsForAccount(account._id);
+    //     const accountAccruals =
+    //       await this.accrualsService.getAccrualsForAccount(account._id);
+    //     for await (const accrual of accountAccruals) {
+    //       const isInvoiceDownloaded =
+    //         await this.invoiceService.checkIsInvoiceDownloaded(
+    //           appartment._id,
+    //           accrual.accountId,
+    //           accrual.periodId,
+    //         );
+
+    //       if (!isInvoiceDownloaded && accrual.invoiceExists) {
+    //         const invoice = await this.invoiceService.fetchInvoiceForPeriod(
+    //           accrual.accountId,
+    //           accrual.periodId,
+    //         );
+
+    //         const invoicePath = await this.invoiceService.constructInvoicePath(
+    //           appartment._id,
+    //           accrual.periodId,
+    //           accrual.accountId,
+    //         );
+    //         await this.invoiceService.saveInvoice(invoice, invoicePath);
+    //       }
+    //     }
+    //   }
+    // }
     // return await this.invoiceService.updateInvoicesForPeriod(303569, 202207);
     // return await this.appartmentsService.updateAppartmentsList();
   }

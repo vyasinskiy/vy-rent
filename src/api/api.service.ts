@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
-import { baseProviderURL } from './assets/constants';
-import { AuthService } from './auth/auth.service';
+import { baseProviderURL } from '../assets/constants';
+import { AuthService } from '../auth/auth.service';
 
 interface Appartment {
   id: number;

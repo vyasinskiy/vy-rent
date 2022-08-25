@@ -1,18 +1,43 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { ApiService } from 'src/api.service';
+import { ApiService } from 'src/api/api.service';
+import { cleanWhiteSpaces } from 'src/assets/helpers';
 import { AppartmentsService } from '../appartments/appartments.service';
 import { Account, AccountDocument } from './account.schema';
 
 @Injectable()
 export class AccountsService {
+  mapAccountToOrganization: Record<number, string>;
   constructor(
     @InjectModel(Account.name)
     private accountModel: Model<AccountDocument>,
     private readonly apiService: ApiService,
     private readonly appartmentsService: AppartmentsService,
-  ) {}
+  ) {
+    this.mapAccountToOrganization = null;
+  }
+
+  async getAllAccounts() {
+    return this.accountModel.find().exec();
+  }
+
+  async getAccountsForAppartment(appartmentId) {
+    return this.accountModel
+      .find({
+        appartmentId,
+      })
+      .exec();
+  }
+
+  async getOrganizationNameByAccountId(accountId) {
+    if (!this.mapAccountToOrganization) {
+      await this.doMapAccountToOrganization();
+    }
+
+    const name = this.mapAccountToOrganization[accountId];
+    return cleanWhiteSpaces(name);
+  }
 
   async updateAccounts() {
     const appartmentsList = await this.appartmentsService.getAppartmentsList();
@@ -68,18 +93,19 @@ export class AccountsService {
   async findOne(criteria) {
     return this.accountModel
       .findOne({
-        filter: criteria,
+        ...criteria,
       })
       .exec();
   }
 
-  async getAccountsForAppartment(apparmentId) {
-    return this.accountModel
-      .find({
-        filter: {
-          apparmentId,
-        },
-      })
-      .exec();
+  private async doMapAccountToOrganization() {
+    this.mapAccountToOrganization = {};
+    const accounts = await this.getAllAccounts();
+
+    for (const account of accounts) {
+      if (!this.mapAccountToOrganization[account._id]) {
+        this.mapAccountToOrganization[account._id] = account.organizationName;
+      }
+    }
   }
 }

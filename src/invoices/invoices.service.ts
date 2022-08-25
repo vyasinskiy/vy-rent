@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import * as fs from 'fs';
 import { writeFile } from 'fs/promises';
 import { Model } from 'mongoose';
-import { ApiService } from 'src/api.service';
+import { ApiService } from 'src/api/api.service';
 import { AccountsService } from '../accounts/accounts.service';
 import { Invoice, InvoiceDocument } from './invoice.schema';
 
@@ -15,6 +15,16 @@ export class InvoiceService {
     private readonly apiService: ApiService,
     private readonly accountsService: AccountsService,
   ) {}
+
+  async checkIsInvoiceDownloaded(appartmentId, accountId, periodCode) {
+    const invoicesDirPath = this.getDirectoryForPeriod(
+      appartmentId,
+      periodCode,
+    );
+    const existedInvoices = fs.readdirSync(invoicesDirPath);
+    const invoiceName = await this.constructInvoiceName(accountId, periodCode);
+    return existedInvoices.includes(invoiceName);
+  }
 
   async updateInvoicesForPeriod(appartmentId: number, periodCode: number) {
     const invoicesDirPath = this.getDirectoryForPeriod(
@@ -48,10 +58,17 @@ export class InvoiceService {
     }
   }
 
-  constructInvoicePath(apparmentId, periodCode, accountId) {
-    const invoiceDir = `src/assets/pdf/${apparmentId}/${periodCode}/`;
-    const invoiceName = `${accountId}-${periodCode}.pdf`;
-    return invoiceDir + invoiceName;
+  async constructInvoicePath(apparmentId, periodCode, accountId) {
+    const invoiceDir = this.getDirectoryForPeriod(apparmentId, periodCode);
+    const invoiceName = await this.constructInvoiceName(accountId, periodCode);
+    return `${invoiceDir}/${invoiceName}`;
+  }
+
+  private async constructInvoiceName(accountId, periodCode) {
+    const organizationName =
+      await this.accountsService.getOrganizationNameByAccountId(accountId);
+    const { year, month } = this.getSeparatedPeriodCode(periodCode);
+    return `${organizationName}_${year}-${month}_${accountId}.pdf`;
   }
 
   async saveInvoice(invoice, invoicePath) {
@@ -59,24 +76,34 @@ export class InvoiceService {
     await writeFile(invoicePath, invoice);
   }
 
-  getAccountFromInvoiceName(fileName) {
-    return fileName.split('-')[0];
+  private getAccountFromInvoiceName(fileName) {
+    const splittedFileName = fileName.split('_');
+    return splittedFileName[splittedFileName.length - 1];
   }
 
   async fetchInvoiceForPeriod(accountId, periodCode) {
+    console.log(
+      `Fetching invoice for account ${accountId} for period ${periodCode}...`,
+    );
     const { data } = await this.apiService.getInvoice(accountId, periodCode);
 
     return data;
   }
 
-  getDirectoryForPeriod(apparmentId: number, periodCode: number) {
-    const path = `src/assets/pdf/${apparmentId}/${periodCode}`;
+  private getDirectoryForPeriod(appartmentId: number, periodCode: number) {
+    const { year, month } = this.getSeparatedPeriodCode(periodCode);
+    const path = `src/assets/pdf/${appartmentId}/${year}${month}`;
     const isDirExists = fs.existsSync(path);
     if (!isDirExists) {
       fs.mkdirSync(path, { recursive: true });
     }
 
     return path;
+  }
+
+  private getSeparatedPeriodCode(periodCode) {
+    const string = String(periodCode);
+    return { year: string.slice(0, 4), month: string.slice(4, 6) };
   }
 
   async create(dto: Invoice): Promise<any> {

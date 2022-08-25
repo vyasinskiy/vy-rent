@@ -5,3 +5,11 @@ export function getCurrentPeriodCode() {
   const formattedMonth = month < 10 ? `0${month}` : month;
   return Number(`${year}${formattedMonth}`);
 }
+
+export function cleanWhiteSpaces(string) {
+  if (!string) {
+    return '';
+  }
+
+  return string.replace(/ /g, '');
+}

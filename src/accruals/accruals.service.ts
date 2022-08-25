@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { AccountsService } from 'src/accounts/accounts.service';
-import { ApiService } from 'src/api.service';
+import { ApiService } from 'src/api/api.service';
 import { Accrual, AccrualDocument } from './accruals.schema';
 
 @Injectable()
@@ -14,12 +14,18 @@ export class AccrualsService {
     private readonly accountService: AccountsService,
   ) {}
 
+  async getAccrualsForAccount(accountId) {
+    return await this.accrualModel
+      .find({
+        accountId,
+      })
+      .exec();
+  }
+
   async updateAccrualsForAccount(accountId) {
-    const account = await this.accountService.findOne({ accountId });
+    const account = await this.accountService.findOne({ _id: accountId });
     const accruals = await this.apiService.getAccountAccruals(accountId);
-    const dbAccruals = await this.accrualModel.find({
-      accountId,
-    });
+    const dbAccruals = await this.getAccrualsForAccount(accountId);
     const accrualsToSave = accruals.filter(
       (accrual) =>
         !dbAccruals.some(
