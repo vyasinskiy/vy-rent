@@ -86,6 +86,7 @@ export class ApiService {
         headers: {
           cookie,
         },
+        timeout: 5000,
         ...options,
       });
 

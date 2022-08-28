@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
-import { TasksModule } from './schedule/task.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AccountsModule } from './accounts/accounts.module';
 import { AccrualsModule } from './accruals/accruals.module';
@@ -10,6 +9,7 @@ import { InvoicesModule } from './invoices/invoices.module';
 import { ApiModule } from './api/api.module';
 import { AppartmentsModule } from './appartments/appartments.module';
 import { AuthModule } from './auth/auth.module';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -19,7 +19,6 @@ import { AuthModule } from './auth/auth.module';
     AppartmentsModule,
     AuthModule,
     InvoicesModule,
-    TasksModule,
     ConfigModule.forRoot(),
     ScheduleModule.forRoot(),
     MongooseModule.forRootAsync({
@@ -30,6 +29,7 @@ import { AuthModule } from './auth/auth.module';
       }),
     }),
   ],
+  providers: [AppService],
   controllers: [AppController],
 })
 export class AppModule {}

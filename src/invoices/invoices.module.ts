@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AccountsModule } from 'src/accounts/accounts.module';
 import { ApiModule } from 'src/api/api.module';
+import { AppartmentsModule } from 'src/appartments/appartments.module';
 import { Invoice, InvoicesSchema } from './invoice.schema';
 import { InvoiceService } from './invoices.service';
 
@@ -9,6 +10,7 @@ import { InvoiceService } from './invoices.service';
   imports: [
     ApiModule,
     AccountsModule,
+    AppartmentsModule,
     MongooseModule.forFeature([{ name: Invoice.name, schema: InvoicesSchema }]),
   ],
   providers: [InvoiceService],
