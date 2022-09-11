@@ -21,7 +21,8 @@ export class AppService {
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_10AM)
-  async updateInvoices() {
+  async updateInvoices(periodId = 202206) {
+    console.log('Auto updating invoices...');
     const appartmentsList = await this.appartmentsService.getAppartmentsList();
     for (const appartment of appartmentsList) {
       const accounts = await this.accountsService.getAccountsForAppartment(
@@ -34,6 +35,10 @@ export class AppService {
           await this.accrualsService.getAccrualsForAccount(account._id);
 
         for await (const accrual of accountAccruals) {
+          if (accrual.periodId < periodId) {
+            continue;
+          }
+
           const isInvoiceDownloaded =
             await this.invoiceService.checkIsInvoiceDownloaded(
               accrual.appartmentId,
@@ -46,7 +51,7 @@ export class AppService {
               accrual.accountId,
               accrual.periodId,
             );
-            const invoicePath = await this.invoiceService.constructInvoicePath(
+            const invoicePath = await this.invoiceService.makeInvoicePath(
               accrual.appartmentId,
               accrual.periodId,
               accrual.accountId,

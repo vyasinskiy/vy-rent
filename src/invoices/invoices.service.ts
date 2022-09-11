@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, StreamableFile } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import * as fs from 'fs';
 import { writeFile } from 'fs/promises';
@@ -24,7 +24,7 @@ export class InvoiceService {
       periodCode,
     );
     const existedInvoices = fs.readdirSync(invoicesDirPath);
-    const invoiceName = await this.constructInvoiceName(accountId, periodCode);
+    const invoiceName = await this.makeInvoiceName(accountId, periodCode);
     return existedInvoices.includes(invoiceName);
   }
 
@@ -33,7 +33,12 @@ export class InvoiceService {
     const invoices = [];
     for await (const appartment of appartmentsList) {
       const dir = this.getDirectoryForPeriod(appartment._id, periodCode);
-      invoices.push(fs.readdirSync(dir));
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        const pdf = fs.createReadStream(`${dir}/${file}`);
+        // return new StreamableFile(pdf);
+        invoices.push(new StreamableFile(pdf));
+      }
     }
 
     return invoices;
@@ -56,7 +61,7 @@ export class InvoiceService {
     );
     for await (const account of accountsToFetch) {
       const invoice = await this.fetchInvoiceForPeriod(account._id, periodCode);
-      const invoicePath = this.constructInvoicePath(
+      const invoicePath = await this.makeInvoicePath(
         appartmentId,
         periodCode,
         account._id,
@@ -77,17 +82,18 @@ export class InvoiceService {
     return data;
   }
 
-  async constructInvoicePath(apparmentId, periodCode, accountId) {
+  async makeInvoicePath(apparmentId, periodCode, accountId) {
     const invoiceDir = this.getDirectoryForPeriod(apparmentId, periodCode);
-    const invoiceName = await this.constructInvoiceName(accountId, periodCode);
+    const invoiceName = await this.makeInvoiceName(accountId, periodCode);
     return `${invoiceDir}/${invoiceName}`;
   }
 
-  private async constructInvoiceName(accountId, periodCode) {
+  private async makeInvoiceName(accountId, periodCode) {
     const organizationName =
       await this.accountsService.getOrganizationNameByAccountId(accountId);
+    const cleanOrganizationName = organizationName.trim().replace(/\"/g, '');
     const { year, month } = this.getSeparatedPeriodCode(periodCode);
-    return `${organizationName}_${year}-${month}_${accountId}.pdf`;
+    return `${cleanOrganizationName}_${year}-${month}_${accountId}.pdf`;
   }
 
   async saveInvoice(invoice, invoicePath) {

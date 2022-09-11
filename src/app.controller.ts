@@ -1,4 +1,11 @@
-import { Controller, Get } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  HttpStatus,
+  Param,
+} from '@nestjs/common';
 import { AppService } from './app.service';
 
 @Controller()
@@ -6,13 +13,16 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get('/get-last-month-invoices')
+  @HttpCode(HttpStatus.OK)
+  @Header('Content-Type', 'application/pdf')
   async getLastMonthInvoices() {
-    await this.appService.updateInvoices();
+    const invoices = await this.appService.getLastMonthInvoices();
+    // this.appService.bot.sendMediaGroup(invoices)
   }
 
-  @Get('/update-invoices')
-  async updateInvoices() {
-    await this.appService.updateInvoices();
+  @Get('/update-invoices/:periodId')
+  async updateInvoices(@Param('periodId') periodId?: string) {
+    await this.appService.updateInvoices(+periodId);
   }
 }
 
