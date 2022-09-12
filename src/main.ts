@@ -1,6 +1,5 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { MongoClient } from 'mongodb';
 
 declare const module: any;
 
@@ -12,7 +11,7 @@ async function bootstrap() {
   // const db = client.db('kv-online-db');
   // const collection = db.collection('kv');
   const app = await NestFactory.create(AppModule);
-  await app.listen(3000);
+  await app.listen(443);
   console.log(`Application is running on: ${await app.getUrl()}`);
 
   if (module.hot) {
