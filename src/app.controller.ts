@@ -1,16 +1,23 @@
 import {
+  Body,
   Controller,
   Get,
   Header,
   HttpCode,
   HttpStatus,
   Param,
+  Post,
 } from '@nestjs/common';
 import { AppService } from './app.service';
 
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
+
+  @Post()
+  async test(@Body() body) {
+    console.log(body);
+  }
 
   @Get('/get-last-month-invoices')
   @HttpCode(HttpStatus.OK)
