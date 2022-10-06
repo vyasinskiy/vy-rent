@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import TelegramBot from 'node-telegram-bot-api';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-// const TelegramBot = require('node-telegram-bot-api');
 
 @Injectable()
 export class BotService {
@@ -15,9 +13,8 @@ export class BotService {
     this.bot.on('message', this.handleMessage);
   }
 
-  handleMessage(msg: TelegramBot.Message) {
+  handleMessage = (msg: TelegramBot.Message) => {
     const chatId = msg.chat.id;
-    console.log(msg);
-    this.bot.sendMessage(chatId, 'test');
-  }
+    this.bot.sendMessage(chatId, `you sent me ${msg.text}`);
+  };
 }
