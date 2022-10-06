@@ -11,7 +11,7 @@ async function bootstrap() {
   // const db = client.db('kv-online-db');
   // const collection = db.collection('kv');
   const app = await NestFactory.create(AppModule);
-  await app.listen(443);
+  await app.listen(5000);
   console.log(`Application is running on: ${await app.getUrl()}`);
 
   if (module.hot) {
