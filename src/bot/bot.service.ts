@@ -17,6 +17,7 @@ export class BotService {
 
   handleMessage(msg: TelegramBot.Message) {
     const chatId = msg.chat.id;
+    console.log(msg);
     this.bot.sendMessage(chatId, 'test');
   }
 }
