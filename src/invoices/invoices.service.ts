@@ -36,7 +36,6 @@ export class InvoiceService {
       const files = fs.readdirSync(dir);
       for (const file of files) {
         const pdf = fs.createReadStream(`${dir}/${file}`);
-        // return new StreamableFile(pdf);
         invoices.push(new StreamableFile(pdf));
       }
     }
