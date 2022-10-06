@@ -10,6 +10,7 @@ import { ApiModule } from './api/api.module';
 import { AppartmentsModule } from './appartments/appartments.module';
 import { AuthModule } from './auth/auth.module';
 import { AppService } from './app.service';
+import { BotModule } from './bot/bot.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AppService } from './app.service';
     ApiModule,
     AppartmentsModule,
     AuthModule,
+    BotModule,
     InvoicesModule,
     ConfigModule.forRoot(),
     ScheduleModule.forRoot(),
