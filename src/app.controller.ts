@@ -27,6 +27,11 @@ import { AppService } from './app.service';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
+  @Get('/update/:entity')
+  async updateEntity(@Param('entity') entity: string) {
+    await this.appService.updateEntity(entity);
+  }
+
   @Get('/get-last-month-invoices')
   @HttpCode(HttpStatus.OK)
   @Header('Content-Type', 'application/pdf')

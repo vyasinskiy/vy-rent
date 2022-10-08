@@ -66,6 +66,7 @@ export class AccountsService {
         }
       }
     }
+    console.log('Accounts were updated!');
   }
 
   async create(

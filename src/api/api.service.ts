@@ -47,26 +47,26 @@ export class ApiService {
 
   async getAppartmentList() {
     const URL = `${baseProviderURL}/personal/apartment`;
-    const { data } = await this.doRequest<Appartment>(URL);
+    const data = await this.doRequest<Appartment>(URL);
 
     return data;
   }
 
   async getAppartmentAccounts(appartmentId) {
     const URL = `${baseProviderURL}/personal/Account/ListByApartment?apartmentId=${appartmentId}`;
-    const { data } = await this.doRequest<AppartmentAccount>(URL);
+    const data = await this.doRequest<AppartmentAccount>(URL);
     return { appartmentId, accounts: data };
   }
 
   async getAccountAccruals(accountId) {
     const URL = `${baseProviderURL}/personal/Accruals/List?accountId=${accountId}`;
-    const { data } = await this.doRequest<AccountData>(URL);
+    const data = await this.doRequest<AccountData>(URL);
     return data;
   }
 
   async getInvoice(accountId: number, period: number) {
     const URL = `${baseProviderURL}/personal/Accruals/GetInvoice/${accountId}?period=${period}`;
-    const { data } = await this.doRequest<any>(URL, {
+    const data = await this.doRequest<any>(URL, {
       responseType: 'stream',
     });
 
@@ -90,7 +90,9 @@ export class ApiService {
         ...options,
       });
 
-      return response;
+      if (response.statusText === 'OK') {
+        return response.data;
+      }
     } catch (error) {
       console.error(`Error while fetching URL: ${url}: ${error}`);
     }

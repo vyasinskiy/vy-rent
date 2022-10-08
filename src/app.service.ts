@@ -4,6 +4,7 @@ import { AccountsService } from './accounts/accounts.service';
 import { AccrualsService } from './accruals/accruals.service';
 import { AppartmentsService } from './appartments/appartments.service';
 import { getCurrentPeriodCode } from './assets/helpers';
+import { BotService } from './bot/bot.service';
 import { InvoiceService } from './invoices/invoices.service';
 
 @Injectable()
@@ -12,17 +13,29 @@ export class AppService {
     private readonly appartmentsService: AppartmentsService,
     private readonly accountsService: AccountsService,
     private readonly accrualsService: AccrualsService,
+    private readonly botService: BotService,
     private readonly invoiceService: InvoiceService,
   ) {}
 
+  async updateEntity(entity: string) {
+    console.log(`Updating ${entity}...`);
+    switch (entity) {
+      case 'appartments':
+        return await this.appartmentsService.updateAppartmentsList();
+      case 'accounts':
+        return await this.accountsService.updateAccounts();
+      // TODO: continue with accruals
+    }
+  }
+
   async getLastMonthInvoices() {
-    const currentPeriodCode = getCurrentPeriodCode();
-    return this.invoiceService.getInvoicesForPeriod(currentPeriodCode);
+    const lastMonthPeriodCode = getCurrentPeriodCode() - 1;
+    return this.invoiceService.getInvoicesForPeriod(lastMonthPeriodCode);
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_10AM)
-  async updateInvoices(periodId = 202206) {
-    console.log('Auto updating invoices...');
+  async updateInvoices(periodId = getCurrentPeriodCode() - 1) {
+    console.log('Udating invoices...');
     const appartmentsList = await this.appartmentsService.getAppartmentsList();
     for (const appartment of appartmentsList) {
       const accounts = await this.accountsService.getAccountsForAppartment(
@@ -57,6 +70,7 @@ export class AppService {
               accrual.accountId,
             );
             await this.invoiceService.saveInvoice(invoice, invoicePath);
+            await this.botService.sendInvoice(invoicePath, appartment.address);
           }
         }
       }

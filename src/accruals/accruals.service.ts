@@ -25,6 +25,12 @@ export class AccrualsService {
   async updateAccrualsForAccount(accountId) {
     const account = await this.accountService.findOne({ _id: accountId });
     const accruals = await this.apiService.getAccountAccruals(accountId);
+
+    if (!accruals) {
+      console.error(`Failed to get accruals for ${account.address}`);
+      return;
+    }
+
     const dbAccruals = await this.getAccrualsForAccount(accountId);
     const accrualsToSave = accruals.filter(
       (accrual) =>

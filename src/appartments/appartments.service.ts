@@ -24,6 +24,7 @@ export class AppartmentsService {
         // recursively check changies
       }
     }
+    console.log('Appartments were updated!');
   }
 
   async getAppartmentsList() {
