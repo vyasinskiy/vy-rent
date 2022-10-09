@@ -22,6 +22,14 @@ export class AccrualsService {
       .exec();
   }
 
+  async getAccrualsForAppartment(appartmentId: string) {
+    return await this.accrualModel
+      .find({
+        appartmentId,
+      })
+      .exec();
+  }
+
   async updateAccrualsForAccount(accountId) {
     const account = await this.accountService.findOne({ _id: accountId });
     const accruals = await this.apiService.getAccountAccruals(accountId);

@@ -8,6 +8,15 @@ import { AppartmentsService } from 'src/appartments/appartments.service';
 import { AccountsService } from '../accounts/accounts.service';
 import { Invoice, InvoiceDocument } from './invoice.schema';
 
+const INVOICE_DATA_REGEXP =
+  /(?<shortOrganizationName>.*)_(?<separatedPeriod>\/d{4}-\/d{2})_(?<appartmentId>\/d{6})_(?<accountId>\/d{6})/;
+
+enum InvoiceDataKeys {
+  ShortOrganizationName = 'shortOrganizationName',
+  SeparatedPeriod = 'separatedPeriod',
+  AppartmentId = 'appartmentId',
+  AccountId = 'accountId',
+}
 @Injectable()
 export class InvoiceService {
   constructor(
@@ -24,7 +33,11 @@ export class InvoiceService {
       periodCode,
     );
     const existedInvoices = fs.readdirSync(invoicesDirPath);
-    const invoiceName = await this.makeInvoiceName(accountId, periodCode);
+    const { invoiceName } = await this.makeInvoiceName(
+      appartmentId,
+      accountId,
+      periodCode,
+    );
     return existedInvoices.includes(invoiceName);
   }
 
@@ -52,20 +65,14 @@ export class InvoiceService {
 
     const appartmentAccounts =
       await this.accountsService.getAccountsForAppartment(appartmentId);
-    const accountsToIgnore = existedInvoices.map((invoice) =>
-      this.getAccountFromInvoiceName(invoice),
+    const accountsToIgnore = existedInvoices.map((invoicePath) =>
+      this.getDataKeyFromInvoiceName(invoicePath, InvoiceDataKeys.AccountId),
     );
     const accountsToFetch = appartmentAccounts.filter(
       (account) => !accountsToIgnore.includes(account._id),
     );
     for await (const account of accountsToFetch) {
-      const invoice = await this.fetchInvoiceForPeriod(account._id, periodCode);
-      const invoicePath = await this.makeInvoicePath(
-        appartmentId,
-        periodCode,
-        account._id,
-      );
-      await this.saveInvoice(invoice, invoicePath);
+      await this.downloadInvoice(appartmentId, account._id, periodCode);
     }
     console.log(
       `Invoices for period ${periodCode} for appartment ${appartmentId} has been updated!`,
@@ -81,18 +88,52 @@ export class InvoiceService {
     return data;
   }
 
-  async makeInvoicePath(apparmentId, periodCode, accountId) {
-    const invoiceDir = this.getDirectoryForPeriod(apparmentId, periodCode);
-    const invoiceName = await this.makeInvoiceName(accountId, periodCode);
-    return `${invoiceDir}/${invoiceName}`;
+  async downloadInvoice(appartmentId, accountId, periodCode) {
+    const invoice = await this.fetchInvoiceForPeriod(accountId, periodCode);
+    const { invoicePath } = await this.makeInvoicePath(
+      appartmentId,
+      accountId,
+      periodCode,
+    );
+    await this.saveInvoice(invoice, invoicePath);
   }
 
-  private async makeInvoiceName(accountId, periodCode) {
+  async makeInvoicePath(appartmentId, accountId, periodCode) {
+    const invoiceDir = this.getDirectoryForPeriod(appartmentId, periodCode);
+    const {
+      invoiceName,
+      organizationName,
+      cleanOrganizationName,
+      separatedPeriodCode,
+    } = await this.makeInvoiceName(appartmentId, accountId, periodCode);
+    const invoicePath = `${invoiceDir}/${invoiceName}`;
+    return {
+      invoiceName,
+      organizationName,
+      cleanOrganizationName,
+      separatedPeriodCode,
+      invoicePath,
+      invoiceDir,
+    };
+  }
+
+  private async makeInvoiceName(appartmentId, accountId, periodCode) {
     const organizationName =
       await this.accountsService.getOrganizationNameByAccountId(accountId);
     const cleanOrganizationName = organizationName.trim().replace(/\"/g, '');
-    const { year, month } = this.getSeparatedPeriodCode(periodCode);
-    return `${cleanOrganizationName}_${year}-${month}_${accountId}.pdf`;
+    const separatedPeriodCode = this.getSeparatedPeriodCode(periodCode);
+    const invoiceName = `${cleanOrganizationName}_${separatedPeriodCode}_${appartmentId}_${accountId}.pdf`;
+    return {
+      invoiceName,
+      organizationName,
+      cleanOrganizationName,
+      separatedPeriodCode,
+    };
+  }
+
+  getDataKeyFromInvoiceName(invoiceName, dataKey: InvoiceDataKeys) {
+    const match = invoiceName.match(INVOICE_DATA_REGEXP);
+    return match.groups[dataKey];
   }
 
   async saveInvoice(invoice, invoicePath) {
@@ -100,14 +141,9 @@ export class InvoiceService {
     await writeFile(invoicePath, invoice);
   }
 
-  private getAccountFromInvoiceName(fileName) {
-    const splittedFileName = fileName.split('_');
-    return splittedFileName[splittedFileName.length - 1];
-  }
-
   private getDirectoryForPeriod(appartmentId: number, periodCode: number) {
-    const { year, month } = this.getSeparatedPeriodCode(periodCode);
-    const path = `src/assets/pdf/${appartmentId}/${year}-${month}`;
+    const separatedPeriodCode = this.getSeparatedPeriodCode(periodCode);
+    const path = `src/assets/pdf/${appartmentId}/${separatedPeriodCode}`;
     const isDirExists = fs.existsSync(path);
     if (!isDirExists) {
       fs.mkdirSync(path, { recursive: true });
@@ -117,8 +153,9 @@ export class InvoiceService {
   }
 
   private getSeparatedPeriodCode(periodCode) {
-    const string = String(periodCode);
-    return { year: string.slice(0, 4), month: string.slice(4, 6) };
+    const year = String(periodCode).slice(0, 4);
+    const month = String(periodCode).slice(4, 6);
+    return `${year}-${month}`;
   }
 
   async create(dto: Invoice): Promise<any> {

@@ -32,13 +32,6 @@ export class AppController {
     await this.appService.updateEntity(entity);
   }
 
-  @Get('/get-last-month-invoices')
-  @HttpCode(HttpStatus.OK)
-  @Header('Content-Type', 'application/pdf')
-  async getLastMonthInvoices() {
-    return await this.appService.getLastMonthInvoices();
-  }
-
   @Get('/update-invoices/:periodId')
   async updateInvoices(@Param('periodId') periodId?: string) {
     await this.appService.updateInvoices(+periodId);

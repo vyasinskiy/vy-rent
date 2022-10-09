@@ -43,4 +43,10 @@ export class AppartmentsService {
     await newEntity.save();
     return newEntity;
   }
+
+  async getAppartmentById(appartmentId: string) {
+    return await this.appartmentModel.findOne({
+      _id: appartmentId,
+    });
+  }
 }

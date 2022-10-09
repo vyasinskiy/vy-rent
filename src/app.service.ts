@@ -28,11 +28,6 @@ export class AppService {
     }
   }
 
-  async getLastMonthInvoices() {
-    const lastMonthPeriodCode = getCurrentPeriodCode() - 1;
-    return this.invoiceService.getInvoicesForPeriod(lastMonthPeriodCode);
-  }
-
   @Cron(CronExpression.EVERY_DAY_AT_10AM)
   async updateInvoices(periodId = getCurrentPeriodCode() - 1) {
     console.log('Udating invoices...');
@@ -41,6 +36,9 @@ export class AppService {
       'Appartments found: \n' +
         appartmentsList.map((appartment) => appartment.address + '\n'),
     );
+
+    const newInvoices = [];
+
     for (const appartment of appartmentsList) {
       const accounts = await this.accountsService.getAccountsForAppartment(
         appartment._id,
@@ -74,16 +72,39 @@ export class AppService {
               accrual.accountId,
               accrual.periodId,
             );
-            const invoicePath = await this.invoiceService.makeInvoicePath(
-              accrual.appartmentId,
-              accrual.periodId,
-              accrual.accountId,
-            );
+            const { invoicePath, separatedPeriodCode } =
+              await this.invoiceService.makeInvoicePath(
+                accrual.appartmentId,
+                accrual.periodId,
+                accrual.accountId,
+              );
             await this.invoiceService.saveInvoice(invoice, invoicePath);
-            await this.botService.sendInvoice(invoicePath, appartment.address);
+            newInvoices.push({
+              invoicePath,
+              separatedPeriodCode,
+              address: appartment.address,
+            });
           }
         }
       }
+    }
+
+    if (newInvoices.length === 0) {
+      return await this.botService.sendMessage(
+        'Today new invoices not found ;(',
+      );
+    }
+
+    for await (const {
+      invoicePath,
+      address,
+      separatedPeriodCode,
+    } of newInvoices) {
+      await this.botService.sendInvoice(
+        invoicePath,
+        address,
+        separatedPeriodCode,
+      );
     }
     console.log('Invoices are updated!');
   }
