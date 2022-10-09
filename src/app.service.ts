@@ -37,9 +37,18 @@ export class AppService {
   async updateInvoices(periodId = getCurrentPeriodCode() - 1) {
     console.log('Udating invoices...');
     const appartmentsList = await this.appartmentsService.getAppartmentsList();
+    console.log(
+      'Appartments found: \n' +
+        appartmentsList.map((appartment) => appartment.address + '\n'),
+    );
     for (const appartment of appartmentsList) {
       const accounts = await this.accountsService.getAccountsForAppartment(
         appartment._id,
+      );
+
+      console.log(
+        `Accounts found for appartment ${appartment.address}:\n` +
+          accounts.map((account) => account.organizationName + '\n'),
       );
 
       for await (const account of accounts) {
@@ -60,6 +69,7 @@ export class AppService {
             );
 
           if (!isInvoiceDownloaded && accrual.invoiceExists) {
+            console.log(`Found new invoice for ${appartment.address}!`);
             const invoice = await this.invoiceService.fetchInvoiceForPeriod(
               accrual.accountId,
               accrual.periodId,
