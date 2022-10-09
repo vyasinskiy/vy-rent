@@ -109,7 +109,7 @@ export class BotService {
     const appartmentsList = await this.appartmentsService.getAppartmentsList();
     const keyboardOptions = appartmentsList.map((appartment) => [
       {
-        text: appartment.address,
+        text: appartment.address.replace('г Краснодар, ', ''),
         callback_data: `GetPeriod/${appartment._id}`,
       },
     ]);
