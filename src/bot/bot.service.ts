@@ -26,15 +26,7 @@ export class BotService {
   }
 
   handleMessage = async (msg: TelegramBot.Message) => {
-    const chatId = msg.chat.id;
-
-    if (chatId !== this.groupChatId) {
-      await this.bot.sendMessage(
-        chatId,
-        `Sorry, this bot is not supposed to handle private messages`,
-      );
-    }
-
+    console.log(msg);
     if (!msg.text.startsWith('/')) {
       return;
     }
