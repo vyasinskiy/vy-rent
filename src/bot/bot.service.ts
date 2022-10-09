@@ -27,10 +27,6 @@ export class BotService {
 
   handleMessage = async (msg: TelegramBot.Message) => {
     console.log(msg);
-    if (!msg.text.startsWith('/')) {
-      return;
-    }
-
     // TODO: handle commands here
   };
 
