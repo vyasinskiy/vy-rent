@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -9,7 +8,6 @@ import { InvoicesModule } from './invoices/invoices.module';
 import { ApiModule } from './api/api.module';
 import { AppartmentsModule } from './appartments/appartments.module';
 import { AuthModule } from './auth/auth.module';
-import { AppService } from './app.service';
 import { BotModule } from './bot/bot.module';
 
 @Module({
@@ -31,7 +29,5 @@ import { BotModule } from './bot/bot.module';
       }),
     }),
   ],
-  providers: [AppService],
-  controllers: [AppController],
 })
 export class AppModule {}

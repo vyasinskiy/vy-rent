@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import TelegramBot from 'node-telegram-bot-api';
 import PQueue from 'p-queue';
+import { AccountsService } from 'src/accounts/accounts.service';
 import { AccrualsService } from 'src/accruals/accruals.service';
 import { AppartmentsService } from 'src/appartments/appartments.service';
 import { BotCommands, MIN_SUPPORTED_PERIOD_CODE } from 'src/assets/constants';
@@ -18,6 +20,7 @@ export class BotService {
 
   constructor(
     private readonly configService: ConfigService,
+    private readonly accountsService: AccountsService,
     private readonly appartmentsService: AppartmentsService,
     private readonly accrualsService: AccrualsService,
     private readonly invoiceService: InvoiceService,
@@ -99,6 +102,7 @@ export class BotService {
           [
             { text: 'Получить счет', callback_data: 'GetAppartments' },
             { text: 'Обновить квартиры', callback_data: 'UpdateAppartments' },
+            { text: 'Обновить инвойсы', callback_data: 'UpdateInvoices' },
           ],
         ],
       },
@@ -120,6 +124,82 @@ export class BotService {
     });
   }
 
+  @Cron(CronExpression.EVERY_DAY_AT_10AM)
+  async onUpdateInvoices() {
+    console.log('Udating invoices...');
+    const appartmentsList = await this.appartmentsService.getAppartmentsList();
+    console.log(
+      'Appartments found: \n' +
+        appartmentsList.map((appartment) => appartment.address + '\n'),
+    );
+
+    const newInvoices = [];
+
+    for (const appartment of appartmentsList) {
+      const accounts = await this.accountsService.getAccountsForAppartment(
+        appartment._id,
+      );
+
+      console.log(
+        `Accounts found for appartment ${appartment.address}:\n` +
+          accounts.map((account) => account.organizationName + '\n'),
+      );
+
+      for await (const account of accounts) {
+        await this.accrualsService.updateAccrualsForAccount(account._id);
+        const accountAccruals =
+          await this.accrualsService.getAccrualsForAccount(account._id);
+
+        for await (const accrual of accountAccruals) {
+          if (accrual.periodId < MIN_SUPPORTED_PERIOD_CODE) {
+            continue;
+          }
+
+          const isInvoiceDownloaded =
+            await this.invoiceService.checkIsInvoiceDownloaded(
+              accrual.appartmentId,
+              accrual.accountId,
+              accrual.periodId,
+            );
+
+          if (!isInvoiceDownloaded && accrual.invoiceExists) {
+            console.log(`Found new invoice for ${appartment.address}!`);
+            const invoice = await this.invoiceService.fetchInvoiceForPeriod(
+              accrual.accountId,
+              accrual.periodId,
+            );
+            const { invoicePath, separatedPeriodCode } =
+              await this.invoiceService.makeInvoicePath(
+                accrual.appartmentId,
+                accrual.accountId,
+                accrual.periodId,
+              );
+            await this.invoiceService.saveInvoice(invoice, invoicePath);
+            newInvoices.push({
+              invoicePath,
+              separatedPeriodCode,
+              address: appartment.address,
+            });
+          }
+        }
+      }
+    }
+
+    if (newInvoices.length === 0) {
+      return await this.sendMessage('Today new invoices not found ;(');
+    }
+
+    for await (const {
+      invoicePath,
+      address,
+      separatedPeriodCode,
+    } of newInvoices) {
+      await this.sendInvoice(invoicePath, address, separatedPeriodCode);
+    }
+    console.log('Invoices are updated!');
+    await this.sendMessage('Квитанции обновлены.');
+  }
+
   async onUpdateAppartments() {
     await this.appartmentsService.updateAppartmentsList();
     await this.sendMessage(
@@ -131,26 +211,47 @@ export class BotService {
     const accruals = await this.accrualsService.getAccrualsForAppartment(
       appartmentId,
     );
-    const keyboardOptions = accruals.reduce((keyboardOptions, accrual) => {
-      if (!accrual.invoiceExists) {
-        return keyboardOptions;
-      }
+    const accounts = await this.accountsService.getAccountsForAppartment(
+      appartmentId,
+    );
+    const keyboardOptions = accruals.reduce(
+      (keyboardOptions, accrual, accrualIndex) => {
+        if (!accrual.invoiceExists) {
+          return keyboardOptions;
+        }
 
-      if (accrual.periodId < MIN_SUPPORTED_PERIOD_CODE) {
-        return keyboardOptions;
-      }
+        if (accrual.periodId < MIN_SUPPORTED_PERIOD_CODE) {
+          return keyboardOptions;
+        }
 
-      return [
-        ...keyboardOptions,
-        [
-          {
-            text: accrual.periodName,
-            callback_data: `GetInvoice/${accrual.appartmentId}_${accrual.accountId}_${accrual.periodId}
+        const hasMultipleAccrualForCurrentPeriod = accruals.find(
+          (item, itemIndex) =>
+            Boolean(
+              itemIndex !== accrualIndex && item.periodId === accrual.periodId,
+            ),
+        );
+
+        const { organizationName } = accounts.find(
+          (account) => +account.id === accrual.accountId,
+        );
+
+        const buttonText = hasMultipleAccrualForCurrentPeriod
+          ? `${accrual.periodName}, ${organizationName}`
+          : accrual.periodName;
+
+        return [
+          ...keyboardOptions,
+          [
+            {
+              text: buttonText,
+              callback_data: `GetInvoice/${accrual.appartmentId}_${accrual.accountId}_${accrual.periodId}
             }`,
-          },
-        ],
-      ];
-    }, []);
+            },
+          ],
+        ];
+      },
+      [],
+    );
 
     await this.sendMessage('Какой период?', {
       reply_markup: {
