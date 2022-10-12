@@ -9,6 +9,11 @@ import { AppartmentsService } from 'src/appartments/appartments.service';
 import { BotCommands, MIN_SUPPORTED_PERIOD_CODE } from 'src/assets/constants';
 import { InvoiceService } from 'src/invoices/invoices.service';
 import { Stream } from 'stream';
+import {
+  GetInvoiceProps,
+  GetPeriodProps,
+  UpdateInvoicesProps,
+} from './bot.types';
 
 const CB_QUERY_REGEXP = /(?<method>\w+)(\/)?(?<data>\w+)?/;
 
@@ -67,7 +72,7 @@ export class BotService {
     const match = msg.data.match(CB_QUERY_REGEXP);
     const method = match.groups.method;
     const data = match.groups.data;
-    this[`on${method}`](data);
+    this[`on${method}`]({ msg, data });
   };
 
   sendInvoice = async (
@@ -99,11 +104,9 @@ export class BotService {
     await this.sendMessage('Что нужно сделать?', {
       reply_markup: {
         inline_keyboard: [
-          [
-            { text: 'Получить счет', callback_data: 'GetAppartments' },
-            { text: 'Обновить квартиры', callback_data: 'UpdateAppartments' },
-            { text: 'Обновить инвойсы', callback_data: 'UpdateInvoices' },
-          ],
+          [{ text: 'Получить счет', callback_data: 'GetAppartments' }],
+          [{ text: 'Обновить квартиры', callback_data: 'UpdateAppartments' }],
+          [{ text: 'Обновить инвойсы', callback_data: 'UpdateInvoices' }],
         ],
       },
     });
@@ -125,7 +128,7 @@ export class BotService {
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_10AM)
-  async onUpdateInvoices() {
+  async onUpdateInvoices(props?: UpdateInvoicesProps) {
     console.log('Udating invoices...');
     const appartmentsList = await this.appartmentsService.getAppartmentsList();
     console.log(
@@ -185,17 +188,19 @@ export class BotService {
       }
     }
 
-    if (newInvoices.length === 0) {
-      return await this.sendMessage('Today new invoices not found ;(');
+    const isScheduledUpdate = !props;
+
+    if (isScheduledUpdate) {
+      if (newInvoices.length === 0) {
+        return await this.sendMessage('Today new invoices not found ;(');
+      }
+
+      for await (const newInvoice of newInvoices) {
+        const { invoicePath, address, separatedPeriodCode } = newInvoice;
+        await this.sendInvoice(invoicePath, address, separatedPeriodCode);
+      }
     }
 
-    for await (const {
-      invoicePath,
-      address,
-      separatedPeriodCode,
-    } of newInvoices) {
-      await this.sendInvoice(invoicePath, address, separatedPeriodCode);
-    }
     console.log('Invoices are updated!');
     await this.sendMessage('Квитанции обновлены.');
   }
@@ -207,7 +212,8 @@ export class BotService {
     );
   }
 
-  async onGetPeriod(appartmentId: string) {
+  async onGetPeriod(props: GetPeriodProps) {
+    const appartmentId = props.data;
     const accruals = await this.accrualsService.getAccrualsForAppartment(
       appartmentId,
     );
@@ -260,7 +266,9 @@ export class BotService {
     });
   }
 
-  async onGetInvoice(invoiceStringData: string) {
+  async onGetInvoice(props: GetInvoiceProps) {
+    const invoiceStringData = props.data;
+
     const match = invoiceStringData.match(
       /(?<appartmentId>\w+)_(?<accountId>\w+)_(?<periodCode>\w+)/,
     );
