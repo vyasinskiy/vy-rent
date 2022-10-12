@@ -220,44 +220,35 @@ export class BotService {
     const accounts = await this.accountsService.getAccountsForAppartment(
       appartmentId,
     );
-    const keyboardOptions = accruals.reduce(
-      (keyboardOptions, accrual, accrualIndex) => {
-        if (!accrual.invoiceExists) {
-          return keyboardOptions;
-        }
 
-        if (accrual.periodId < MIN_SUPPORTED_PERIOD_CODE) {
-          return keyboardOptions;
-        }
+    const keyboardOptions = accruals.reduce((keyboardOptions, accrual) => {
+      if (!accrual.invoiceExists) {
+        return keyboardOptions;
+      }
 
-        const hasMultipleAccrualForCurrentPeriod = accruals.find(
-          (item, itemIndex) =>
-            Boolean(
-              itemIndex !== accrualIndex && item.periodId === accrual.periodId,
-            ),
-        );
+      if (accrual.periodId < MIN_SUPPORTED_PERIOD_CODE) {
+        return keyboardOptions;
+      }
+      const hasMultipleAccounts = accounts.length > 1;
 
-        const { organizationName } = accounts.find(
-          (account) => +account.id === accrual.accountId,
-        );
+      const { organizationName } = accounts.find(
+        (account) => +account.id === accrual.accountId,
+      );
 
-        const buttonText = hasMultipleAccrualForCurrentPeriod
-          ? `${accrual.periodName}, ${organizationName}`
-          : accrual.periodName;
+      const buttonText = hasMultipleAccounts
+        ? `${accrual.periodName}, ${organizationName}`
+        : accrual.periodName;
 
-        return [
-          ...keyboardOptions,
-          [
-            {
-              text: buttonText,
-              callback_data: `GetInvoice/${accrual.appartmentId}_${accrual.accountId}_${accrual.periodId}
-            }`,
-            },
-          ],
-        ];
-      },
-      [],
-    );
+      return [
+        ...keyboardOptions,
+        [
+          {
+            text: buttonText,
+            callback_data: `GetInvoice/${accrual.appartmentId}_${accrual.accountId}_${accrual.periodId}`,
+          },
+        ],
+      ];
+    }, []);
 
     await this.sendMessage('Какой период?', {
       reply_markup: {
