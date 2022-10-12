@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ApiService } from 'src/api/api.service';
@@ -9,6 +9,8 @@ import { Account, AccountDocument } from './account.schema';
 @Injectable()
 export class AccountsService {
   mapAccountToOrganization: Record<number, string>;
+  private readonly logger = new Logger(AccountsService.name);
+
   constructor(
     @InjectModel(Account.name)
     private accountModel: Model<AccountDocument>,
@@ -66,7 +68,7 @@ export class AccountsService {
         }
       }
     }
-    console.log('Accounts were updated!');
+    this.logger.log('Accounts were updated!');
   }
 
   async create(

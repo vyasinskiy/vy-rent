@@ -1,4 +1,4 @@
-import { Injectable, StreamableFile } from '@nestjs/common';
+import { Injectable, Logger, StreamableFile } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import * as fs from 'fs';
 import { writeFile } from 'fs/promises';
@@ -19,6 +19,8 @@ enum InvoiceDataKeys {
 }
 @Injectable()
 export class InvoiceService {
+  private readonly logger = new Logger(InvoiceService.name);
+
   constructor(
     @InjectModel(Invoice.name)
     private invoiceModel: Model<InvoiceDocument>,
@@ -74,13 +76,13 @@ export class InvoiceService {
     for await (const account of accountsToFetch) {
       await this.downloadInvoice(appartmentId, account._id, periodCode);
     }
-    console.log(
+    this.logger.log(
       `Invoices for period ${periodCode} for appartment ${appartmentId} has been updated!`,
     );
   }
 
   async fetchInvoiceForPeriod(accountId, periodCode) {
-    console.log(
+    this.logger.log(
       `Fetching invoice for account ${accountId} for period ${periodCode}...`,
     );
     const { data } = await this.apiService.getInvoice(accountId, periodCode);

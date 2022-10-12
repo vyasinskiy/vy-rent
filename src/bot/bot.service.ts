@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, LoggerService } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import TelegramBot from 'node-telegram-bot-api';
@@ -22,6 +22,7 @@ export class BotService {
   private readonly bot: TelegramBot | null;
   private readonly groupChatId: number;
   private readonly pQueue: PQueue;
+  private readonly logger = new Logger(BotService.name);
 
   constructor(
     private readonly configService: ConfigService,
@@ -67,7 +68,7 @@ export class BotService {
   };
 
   handleCallbackQuery = async (msg: TelegramBot.CallbackQuery) => {
-    console.log('Received callback query:', msg);
+    this.logger.log('Received callback query:', msg);
 
     const match = msg.data.match(CB_QUERY_REGEXP);
     const method = match.groups.method;
@@ -80,7 +81,7 @@ export class BotService {
     address: string,
     separatedPeriodCode: string,
   ) => {
-    console.log(
+    this.logger.log(
       `Sending document:\nAddress: ${address}\nPeriod: ${separatedPeriodCode}\n...`,
     );
 
@@ -91,7 +92,7 @@ export class BotService {
   };
 
   handleMessage = async (msg: TelegramBot.Message) => {
-    console.log('Received message:', msg);
+    this.logger.log('Received message:', msg);
 
     if (msg.text !== BotCommands.Start) {
       return;
@@ -129,9 +130,9 @@ export class BotService {
 
   @Cron(CronExpression.EVERY_DAY_AT_10AM)
   async onUpdateInvoices(props?: UpdateInvoicesProps) {
-    console.log('Udating invoices...');
+    this.logger.log('Udating invoices...');
     const appartmentsList = await this.appartmentsService.getAppartmentsList();
-    console.log(
+    this.logger.log(
       'Appartments found: \n' +
         appartmentsList.map((appartment) => appartment.address + '\n'),
     );
@@ -143,7 +144,7 @@ export class BotService {
         appartment._id,
       );
 
-      console.log(
+      this.logger.log(
         `Accounts found for appartment ${appartment.address}:\n` +
           accounts.map((account) => account.organizationName + '\n'),
       );
@@ -166,7 +167,7 @@ export class BotService {
             );
 
           if (!isInvoiceDownloaded && accrual.invoiceExists) {
-            console.log(`Found new invoice for ${appartment.address}!`);
+            this.logger.log(`Found new invoice for ${appartment.address}!`);
             const invoice = await this.invoiceService.fetchInvoiceForPeriod(
               accrual.accountId,
               accrual.periodId,
@@ -201,7 +202,7 @@ export class BotService {
       }
     }
 
-    console.log('Invoices are updated!');
+    this.logger.log('Invoices are updated!');
     await this.sendMessage('Квитанции обновлены.');
   }
 
