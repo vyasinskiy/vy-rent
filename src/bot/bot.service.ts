@@ -1,4 +1,4 @@
-import { Injectable, Logger, LoggerService } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import TelegramBot from 'node-telegram-bot-api';
@@ -10,17 +10,18 @@ import { BotCommands, MIN_SUPPORTED_PERIOD_CODE } from 'src/assets/constants';
 import { InvoiceService } from 'src/invoices/invoices.service';
 import { Stream } from 'stream';
 import {
+  GetAppartmentsProps,
   GetInvoiceProps,
   GetPeriodProps,
+  UpdateAppartmentsProps,
   UpdateInvoicesProps,
 } from './bot.types';
 
-const CB_QUERY_REGEXP = /(?<method>\w+)(\/)?(?<data>\w+)?/;
+const CB_QUERY_REGEXP = /(?<chatId>\w+)(\/)(?<method>\w+)(\/)?(?<data>\w+)?/;
 
 @Injectable()
 export class BotService {
   private readonly bot: TelegramBot | null;
-  private readonly groupChatId: number;
   private readonly pQueue: PQueue;
   private readonly logger = new Logger(BotService.name);
 
@@ -34,7 +35,6 @@ export class BotService {
     this.bot = new TelegramBot(this.configService.get('TELEGRAM_API_TOKEN'), {
       polling: true,
     });
-    this.groupChatId = this.configService.get('TELEGRAM_GROUP_CHAT_ID');
     this.pQueue = new PQueue({
       concurrency: 1,
       interval: 3000,
@@ -43,85 +43,91 @@ export class BotService {
     this.setup();
   }
 
-  setup() {
-    this.bot.on('message', this.handleMessage);
-    this.bot.on('callback_query', this.handleCallbackQuery);
-  }
-
-  sendMessage = async (
+  public sendMessage = async (
+    chatId: number,
     text: string,
     options?: TelegramBot.SendMessageOptions,
   ) => {
-    this.pQueue.add(() =>
-      this.bot.sendMessage(this.groupChatId, text, options),
-    );
+    this.pQueue.add(() => this.bot.sendMessage(chatId, text, options));
   };
 
-  sendDocument = async (
+  public sendDocument = async (
+    chatId: number,
     doc: string | Stream | Buffer,
     options?: TelegramBot.SendDocumentOptions,
     fileOptions?: TelegramBot.FileOptions,
   ) => {
     this.pQueue.add(() =>
-      this.bot.sendDocument(this.groupChatId, doc, options, fileOptions),
+      this.bot.sendDocument(chatId, doc, options, fileOptions),
     );
   };
 
-  handleCallbackQuery = async (msg: TelegramBot.CallbackQuery) => {
+  private setup() {
+    this.bot.on('message', this.handleMessage);
+    this.bot.on('callback_query', this.handleCallbackQuery);
+  }
+
+  private handleCallbackQuery = async (msg: TelegramBot.CallbackQuery) => {
     this.logger.log('Received callback query:', msg);
 
     const match = msg.data.match(CB_QUERY_REGEXP);
+
+    const chatId = match.groups.chatId;
     const method = match.groups.method;
     const data = match.groups.data;
-    this[`on${method}`]({ msg, data });
+    this[`on${method}`]({ chatId, msg, data });
   };
 
-  sendInvoice = async (
-    invoicePath: string,
-    address: string,
-    separatedPeriodCode: string,
-  ) => {
-    this.logger.log(
-      `Sending document:\nAddress: ${address}\nPeriod: ${separatedPeriodCode}\n...`,
-    );
-
-    await this.sendMessage(
-      `Получена квитанция:\n\nАдрес:\n${address}\n\nПериод:\n${separatedPeriodCode}`,
-    );
-    await this.sendDocument(invoicePath);
-  };
-
-  handleMessage = async (msg: TelegramBot.Message) => {
+  private handleMessage = async (msg: TelegramBot.Message) => {
     this.logger.log('Received message:', msg);
 
     if (msg.text !== BotCommands.Start) {
       return;
     }
 
-    this.onStart();
+    this.onStart(msg);
   };
 
-  async onStart() {
-    await this.sendMessage('Что нужно сделать?', {
+  private async onStart(msg: TelegramBot.Message) {
+    const chatId = msg.chat.id;
+
+    await this.sendMessage(chatId, 'Что нужно сделать?', {
       reply_markup: {
         inline_keyboard: [
-          [{ text: 'Получить счет', callback_data: 'GetAppartments' }],
-          [{ text: 'Обновить квартиры', callback_data: 'UpdateAppartments' }],
-          [{ text: 'Обновить инвойсы', callback_data: 'UpdateInvoices' }],
+          [
+            {
+              text: 'Получить счет',
+              callback_data: `${chatId}/GetAppartments`,
+            },
+          ],
+          [
+            {
+              text: 'Обновить квартиры',
+              callback_data: `${chatId}/UpdateAppartments`,
+            },
+          ],
+          [
+            {
+              text: 'Обновить инвойсы',
+              callback_data: `${chatId}/UpdateInvoices`,
+            },
+          ],
         ],
       },
     });
   }
 
-  async onGetAppartments() {
+  private async onGetAppartments(props: GetAppartmentsProps) {
+    const { chatId } = props;
+
     const appartmentsList = await this.appartmentsService.getAppartmentsList();
     const keyboardOptions = appartmentsList.map((appartment) => [
       {
         text: appartment.address.replace('г Краснодар, ', ''),
-        callback_data: `GetPeriod/${appartment._id}`,
+        callback_data: `${chatId}/GetPeriod/${appartment._id}`,
       },
     ]);
-    await this.sendMessage('По какой квартире?', {
+    await this.sendMessage(chatId, 'По какой квартире?', {
       reply_markup: {
         inline_keyboard: keyboardOptions,
       },
@@ -129,9 +135,12 @@ export class BotService {
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_10AM)
-  async onUpdateInvoices(props?: UpdateInvoicesProps) {
+  private async onUpdateInvoices(props?: UpdateInvoicesProps) {
     this.logger.log('Udating invoices...');
+    const { chatId } = props;
+
     const appartmentsList = await this.appartmentsService.getAppartmentsList();
+
     this.logger.log(
       'Appartments found: \n' +
         appartmentsList.map((appartment) => appartment.address + '\n'),
@@ -192,29 +201,40 @@ export class BotService {
     const isScheduledUpdate = !props;
 
     if (isScheduledUpdate) {
+      const groupChatId = this.configService.get('TELEGRAM_GROUP_CHAT_ID');
       if (newInvoices.length === 0) {
-        return await this.sendMessage('Today new invoices not found ;(');
+        return await this.sendMessage(
+          groupChatId,
+          'Today new invoices not found ;(',
+        );
       }
 
       for await (const newInvoice of newInvoices) {
         const { invoicePath, address, separatedPeriodCode } = newInvoice;
-        await this.sendInvoice(invoicePath, address, separatedPeriodCode);
+        await this.sendInvoice(
+          groupChatId,
+          invoicePath,
+          address,
+          separatedPeriodCode,
+        );
       }
     }
 
     this.logger.log('Invoices are updated!');
-    await this.sendMessage('Квитанции обновлены.');
+    await this.sendMessage(chatId, 'Квитанции обновлены.');
   }
 
-  async onUpdateAppartments() {
+  private async onUpdateAppartments(props: UpdateAppartmentsProps) {
+    const { chatId } = props;
     await this.appartmentsService.updateAppartmentsList();
     await this.sendMessage(
+      chatId,
       `Квартиры синхронизированы с сервисом Квартплата онлайн.`,
     );
   }
 
-  async onGetPeriod(props: GetPeriodProps) {
-    const appartmentId = props.data;
+  private async onGetPeriod(props: GetPeriodProps) {
+    const { chatId, data: appartmentId } = props;
     const accruals = await this.accrualsService.getAccrualsForAppartment(
       appartmentId,
     );
@@ -245,21 +265,21 @@ export class BotService {
         [
           {
             text: buttonText,
-            callback_data: `GetInvoice/${accrual.appartmentId}_${accrual.accountId}_${accrual.periodId}`,
+            callback_data: `${chatId}/GetInvoice/${accrual.appartmentId}_${accrual.accountId}_${accrual.periodId}`,
           },
         ],
       ];
     }, []);
 
-    await this.sendMessage('Какой период?', {
+    await this.sendMessage(chatId, 'Какой период?', {
       reply_markup: {
         inline_keyboard: keyboardOptions,
       },
     });
   }
 
-  async onGetInvoice(props: GetInvoiceProps) {
-    const invoiceStringData = props.data;
+  private async onGetInvoice(props: GetInvoiceProps) {
+    const { chatId, data: invoiceStringData } = props;
 
     const match = invoiceStringData.match(
       /(?<appartmentId>\w+)_(?<accountId>\w+)_(?<periodCode>\w+)/,
@@ -293,9 +313,27 @@ export class BotService {
       );
 
     await this.sendInvoice(
+      chatId,
       invoicePath,
       appartment.address,
       separatedPeriodCode,
     );
+  }
+
+  private async sendInvoice(
+    chatId: number,
+    invoicePath: string,
+    address: string,
+    separatedPeriodCode: string,
+  ) {
+    this.logger.log(
+      `Sending document:\nAddress: ${address}\nPeriod: ${separatedPeriodCode}\n...`,
+    );
+
+    await this.sendMessage(
+      chatId,
+      `Получена квитанция:\n\nАдрес:\n${address}\n\nПериод:\n${separatedPeriodCode}`,
+    );
+    await this.sendDocument(chatId, invoicePath);
   }
 }

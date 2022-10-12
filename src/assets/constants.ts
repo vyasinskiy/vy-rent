@@ -4,5 +4,5 @@ export const baseProviderURL =
 export const MIN_SUPPORTED_PERIOD_CODE = 202201;
 
 export enum BotCommands {
-  Start = '/start@yasinsky_helper_bot',
+  Start = '/start',
 }
