@@ -232,7 +232,7 @@ export class BotService {
       if (newInvoices.length === 0) {
         return await this.sendMessage(
           groupChatId,
-          'Today new invoices not found ;(',
+          'Сегодня новые квитанции не найдены ;(',
         );
       }
 
