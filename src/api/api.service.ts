@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { baseProviderURL } from '../assets/constants';
 import { AuthService } from '../auth/auth.service';
@@ -43,28 +43,30 @@ interface AccountData {
 
 @Injectable()
 export class ApiService {
+  private readonly logger = new Logger(ApiService.name);
+
   constructor(private readonly authService: AuthService) {}
 
-  async getAppartmentList() {
+  public async getAppartmenstList() {
     const URL = `${baseProviderURL}/personal/apartment`;
     const data = await this.doRequest<Appartment>(URL);
 
     return data;
   }
 
-  async getAppartmentAccounts(appartmentId) {
+  public async getAppartmentAccounts(appartmentId) {
     const URL = `${baseProviderURL}/personal/Account/ListByApartment?apartmentId=${appartmentId}`;
     const data = await this.doRequest<AppartmentAccount>(URL);
     return { appartmentId, accounts: data };
   }
 
-  async getAccountAccruals(accountId) {
+  public async getAccountAccruals(accountId) {
     const URL = `${baseProviderURL}/personal/Accruals/List?accountId=${accountId}`;
     const data = await this.doRequest<AccountData>(URL);
     return data;
   }
 
-  async getInvoice(accountId: number, period: number) {
+  public async getInvoice(accountId: number, period: number) {
     const URL = `${baseProviderURL}/personal/Accruals/GetInvoice/${accountId}?period=${period}`;
     const data = await this.doRequest<any>(URL, {
       responseType: 'stream',
@@ -77,9 +79,14 @@ export class ApiService {
     };
   }
 
-  // TODO: any => axions options type
-  async doRequest<T>(url, options?: Record<string, any>) {
+  // TODO: any => axios options type
+  private async doRequest<T>(url, options?: Record<string, any>) {
     const cookie = await this.authService.getCookie();
+
+    if (!cookie) {
+      this.logger.error('Unable to make request: no cookies');
+      return;
+    }
 
     try {
       const response = await axios.get<T[]>(url, {
@@ -94,7 +101,7 @@ export class ApiService {
         return response.data;
       }
     } catch (error) {
-      console.error(`Error while fetching URL: ${url}: ${error}`);
+      this.logger.error(`Error while fetching URL: ${url}: ${error}`);
     }
   }
 }

@@ -21,7 +21,7 @@ const CB_QUERY_REGEXP = /(?<chatId>\w+)(\/)(?<method>\w+)(\/)?(?<data>\w+)?/;
 
 @Injectable()
 export class BotService {
-  private readonly bot: TelegramBot | null;
+  private readonly bot: TelegramBot;
   private readonly pQueue: PQueue;
   private readonly logger = new Logger(BotService.name);
 
@@ -32,15 +32,12 @@ export class BotService {
     private readonly accrualsService: AccrualsService,
     private readonly invoiceService: InvoiceService,
   ) {
-    this.bot = new TelegramBot(this.configService.get('TELEGRAM_API_TOKEN'), {
-      polling: true,
-    });
+    this.bot = this.setupBot();
     this.pQueue = new PQueue({
       concurrency: 1,
       interval: 3000,
       intervalCap: 1,
     });
-    this.setup();
   }
 
   public sendMessage = async (
@@ -62,15 +59,36 @@ export class BotService {
     );
   };
 
-  private setup() {
-    this.bot.on('message', this.handleMessage);
-    this.bot.on('callback_query', this.handleCallbackQuery);
+  private setupBot() {
+    const bot = new TelegramBot(
+      this.configService.get('TELEGRAM_API_TOKEN') as string,
+      {
+        polling: true,
+      },
+    );
+    bot.on('message', this.handleMessage);
+    bot.on('callback_query', this.handleCallbackQuery);
+
+    return bot;
   }
 
   private handleCallbackQuery = async (msg: TelegramBot.CallbackQuery) => {
     this.logger.log('Received callback query:', msg);
 
+    const callbackQueryErrorLogger = () =>
+      this.logger.error('Wrong message data in callbackQuery');
+
+    if (!msg.data) {
+      callbackQueryErrorLogger();
+      return;
+    }
+
     const match = msg.data.match(CB_QUERY_REGEXP);
+
+    if (!match?.groups) {
+      callbackQueryErrorLogger();
+      return;
+    }
 
     const chatId = match.groups.chatId;
     const method = match.groups.method;
@@ -137,7 +155,16 @@ export class BotService {
   @Cron(CronExpression.EVERY_DAY_AT_10AM)
   private async onUpdateInvoices(props?: UpdateInvoicesProps) {
     this.logger.log('Udating invoices...');
-    const { chatId } = props;
+
+    const groupChatId = this.getGroupChatId();
+    const chatId = props?.chatId ?? groupChatId;
+
+    if (!chatId) {
+      this.logger.error(
+        'Error while updating invoices: "chatId" is not specified',
+      );
+      return;
+    }
 
     const appartmentsList = await this.appartmentsService.getAppartmentsList();
 
@@ -146,7 +173,7 @@ export class BotService {
         appartmentsList.map((appartment) => appartment.address + '\n'),
     );
 
-    const newInvoices = [];
+    const newInvoices: Record<string, string>[] = [];
 
     for (const appartment of appartmentsList) {
       const accounts = await this.accountsService.getAccountsForAppartment(
@@ -252,12 +279,16 @@ export class BotService {
       }
       const hasMultipleAccounts = accounts.length > 1;
 
-      const { organizationName } = accounts.find(
+      const accountByAccrual = accounts.find(
         (account) => +account.id === accrual.accountId,
       );
 
+      const additionalPeriodIdentity = accountByAccrual
+        ? accountByAccrual.organizationName
+        : accrual._id;
+
       const buttonText = hasMultipleAccounts
-        ? `${accrual.periodName}, ${organizationName}`
+        ? `${accrual.periodName}, ${additionalPeriodIdentity}`
         : accrual.periodName;
 
       return [
@@ -284,11 +315,25 @@ export class BotService {
     const match = invoiceStringData.match(
       /(?<appartmentId>\w+)_(?<accountId>\w+)_(?<periodCode>\w+)/,
     );
+
+    if (!match?.groups) {
+      this.logger.error(
+        'Error while matching onGetInvoice data: no match found',
+      );
+      return;
+    }
+
     const { appartmentId, accountId, periodCode } = match.groups;
 
     const appartment = await this.appartmentsService.getAppartmentById(
       appartmentId,
     );
+
+    if (!appartment) {
+      return this.logger.error(
+        `Error while getting appartment: no appartment found by given id: ${appartmentId}`,
+      );
+    }
 
     const isInvoiceDownloaded =
       await this.invoiceService.checkIsInvoiceDownloaded(
@@ -335,5 +380,20 @@ export class BotService {
       `Получена квитанция:\n\nАдрес:\n${address}\n\nПериод:\n${separatedPeriodCode}`,
     );
     await this.sendDocument(chatId, invoicePath);
+  }
+
+  private getGroupChatId() {
+    const groupChatId = this.configService.get<number>(
+      'TELEGRAM_GROUP_CHAT_ID',
+    );
+
+    if (!groupChatId) {
+      this.logger.error(
+        'TELEGRAM_GROUP_CHAT_ID key is not specified in environment',
+      );
+      return;
+    }
+
+    return groupChatId;
   }
 }

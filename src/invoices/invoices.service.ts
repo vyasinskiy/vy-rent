@@ -1,12 +1,9 @@
 import { Injectable, Logger, StreamableFile } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
 import * as fs from 'fs';
 import { writeFile } from 'fs/promises';
-import { Model } from 'mongoose';
 import { ApiService } from 'src/api/api.service';
 import { AppartmentsService } from 'src/appartments/appartments.service';
 import { AccountsService } from '../accounts/accounts.service';
-import { Invoice, InvoiceDocument } from './invoice.schema';
 
 const INVOICE_DATA_REGEXP =
   /(?<shortOrganizationName>.*)_(?<separatedPeriod>\/d{4}-\/d{2})_(?<appartmentId>\/d{6})_(?<accountId>\/d{6})/;
@@ -22,14 +19,12 @@ export class InvoiceService {
   private readonly logger = new Logger(InvoiceService.name);
 
   constructor(
-    @InjectModel(Invoice.name)
-    private invoiceModel: Model<InvoiceDocument>,
     private readonly apiService: ApiService,
     private readonly accountsService: AccountsService,
     private readonly appartmentsService: AppartmentsService,
   ) {}
 
-  async checkIsInvoiceDownloaded(appartmentId, accountId, periodCode) {
+  public async checkIsInvoiceDownloaded(appartmentId, accountId, periodCode) {
     const invoicesDirPath = this.getDirectoryForPeriod(
       appartmentId,
       periodCode,
@@ -45,7 +40,7 @@ export class InvoiceService {
 
   async getInvoicesForPeriod(periodCode: number) {
     const appartmentsList = await this.appartmentsService.getAppartmentsList();
-    const invoices = [];
+    const invoices: StreamableFile[] = [];
     for await (const appartment of appartmentsList) {
       const dir = this.getDirectoryForPeriod(appartment._id, periodCode);
       const files = fs.readdirSync(dir);
@@ -58,7 +53,10 @@ export class InvoiceService {
     return invoices;
   }
 
-  async updateInvoicesForPeriod(appartmentId: number, periodCode: number) {
+  public async updateInvoicesForPeriod(
+    appartmentId: number,
+    periodCode: number,
+  ) {
     const invoicesDirPath = this.getDirectoryForPeriod(
       appartmentId,
       periodCode,
@@ -81,7 +79,7 @@ export class InvoiceService {
     );
   }
 
-  async fetchInvoiceForPeriod(accountId, periodCode) {
+  public async fetchInvoiceForPeriod(accountId, periodCode) {
     this.logger.log(
       `Fetching invoice for account ${accountId} for period ${periodCode}...`,
     );
@@ -90,7 +88,7 @@ export class InvoiceService {
     return data;
   }
 
-  async downloadInvoice(appartmentId, accountId, periodCode) {
+  public async downloadInvoice(appartmentId, accountId, periodCode) {
     const invoice = await this.fetchInvoiceForPeriod(accountId, periodCode);
     const { invoicePath } = await this.makeInvoicePath(
       appartmentId,
@@ -100,7 +98,12 @@ export class InvoiceService {
     await this.saveInvoice(invoice, invoicePath);
   }
 
-  async makeInvoicePath(appartmentId, accountId, periodCode) {
+  public async saveInvoice(invoice, invoicePath) {
+    // TODO: how to use fs.writeFileSync(invoicePath, invoice)?
+    await writeFile(invoicePath, invoice);
+  }
+
+  public async makeInvoicePath(appartmentId, accountId, periodCode) {
     const invoiceDir = this.getDirectoryForPeriod(appartmentId, periodCode);
     const {
       invoiceName,
@@ -133,14 +136,9 @@ export class InvoiceService {
     };
   }
 
-  getDataKeyFromInvoiceName(invoiceName, dataKey: InvoiceDataKeys) {
+  private getDataKeyFromInvoiceName(invoiceName, dataKey: InvoiceDataKeys) {
     const match = invoiceName.match(INVOICE_DATA_REGEXP);
     return match.groups[dataKey];
-  }
-
-  async saveInvoice(invoice, invoicePath) {
-    // TODO: how to use fs.writeFileSync(invoicePath, invoice)?
-    await writeFile(invoicePath, invoice);
   }
 
   private getDirectoryForPeriod(appartmentId: number, periodCode: number) {
@@ -158,10 +156,5 @@ export class InvoiceService {
     const year = String(periodCode).slice(0, 4);
     const month = String(periodCode).slice(4, 6);
     return `${year}-${month}`;
-  }
-
-  async create(dto: Invoice): Promise<any> {
-    const newEntity = await new this.invoiceModel(dto);
-    await newEntity.save();
   }
 }

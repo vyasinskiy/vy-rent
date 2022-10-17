@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { AccountsService } from 'src/accounts/accounts.service';
@@ -7,6 +7,8 @@ import { Accrual, AccrualDocument } from './accruals.schema';
 
 @Injectable()
 export class AccrualsService {
+  private readonly logger = new Logger(AccrualsService.name);
+
   constructor(
     @InjectModel(Accrual.name)
     private accrualModel: Model<AccrualDocument>,
@@ -31,11 +33,17 @@ export class AccrualsService {
   }
 
   async updateAccrualsForAccount(accountId) {
-    const account = await this.accountService.findOne({ _id: accountId });
-    const accruals = await this.apiService.getAccountAccruals(accountId);
+    this.logger.log(`Updating accruals for account: ${accountId}`);
 
+    const account = await this.accountService.findOne({ _id: accountId });
+    if (!account) {
+      this.logger.error(`Failed to get account by ID: ${accountId}`);
+      return;
+    }
+
+    const accruals = await this.apiService.getAccountAccruals(accountId);
     if (!accruals) {
-      console.error(`Failed to get accruals for ${account.address}`);
+      this.logger.error(`Failed to get accruals for ${account.address}`);
       return;
     }
 

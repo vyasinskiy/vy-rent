@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { baseProviderURL } from '../assets/constants';
@@ -10,22 +10,34 @@ interface TokenData {
 
 @Injectable()
 export class AuthService {
-  private cookie: string | null;
+  private cookie: string;
+  private readonly logger = new Logger(AuthService.name);
 
-  constructor(private configService: ConfigService) {
-    this.cookie = null;
-  }
+  constructor(private configService: ConfigService) {}
 
-  async getCookie(forceUpdate?) {
+  public async getCookie(forceUpdate?) {
     if (!this.cookie || forceUpdate) {
-      this.cookie = await this.requestCookie();
+      const cookie = await this.requestCookie();
+      if (!cookie) {
+        this.logger.error('Error while getting cookies');
+        return;
+      }
+
+      this.cookie = cookie;
     }
 
     return this.cookie;
   }
 
-  async requestCookie() {
-    const { userName, token } = await this.requestToken();
+  private async requestCookie() {
+    const data = await this.requestToken();
+
+    if (!data) {
+      this.logger.error('Error while getting token');
+      return;
+    }
+
+    const { userName, token } = data;
 
     try {
       const response = await axios.post(
@@ -40,19 +52,26 @@ export class AuthService {
 
       const cookies = response.headers['set-cookie'];
 
-      if (cookies.length > 0) {
-        console.warn('Received more than 1 cookie from provider');
+      if (!cookies) {
+        this.logger.error('Error while getting cookies');
+        return;
       }
 
       return cookies[0];
     } catch (error) {
-      console.error(error);
+      this.logger.error(error);
     }
   }
 
-  async requestToken() {
+  private async requestToken() {
     const login = this.configService.get<string>('LOGIN');
     const password = this.configService.get<string>('PASSWORD');
+
+    if (!login || !password) {
+      this.logger.error(
+        'Error while requesting token: LOGIN or PASSWORD keys is not specified',
+      );
+    }
 
     try {
       const { data } = await axios.post<TokenData>(
@@ -67,7 +86,7 @@ export class AuthService {
 
       return data;
     } catch (error) {
-      console.error(error);
+      this.logger.error(error);
     }
   }
 }

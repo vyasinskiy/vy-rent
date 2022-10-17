@@ -8,7 +8,7 @@ import { Account, AccountDocument } from './account.schema';
 
 @Injectable()
 export class AccountsService {
-  mapAccountToOrganization: Record<number, string>;
+  private mapAccountToOrganization: Record<number, string>;
   private readonly logger = new Logger(AccountsService.name);
 
   constructor(
@@ -16,9 +16,7 @@ export class AccountsService {
     private accountModel: Model<AccountDocument>,
     private readonly apiService: ApiService,
     private readonly appartmentsService: AppartmentsService,
-  ) {
-    this.mapAccountToOrganization = null;
-  }
+  ) {}
 
   async getAllAccounts() {
     return this.accountModel.find().exec();
@@ -47,6 +45,14 @@ export class AccountsService {
       const { accounts } = await this.apiService.getAppartmentAccounts(
         appartment._id,
       );
+
+      if (!accounts) {
+        this.logger.error(
+          'Unsuccessful accounts updates: No accounts retrieved while fetching',
+        );
+        return;
+      }
+
       for await (const account of accounts) {
         const { id, organizationName, organizationId, address, debt, type } =
           account;

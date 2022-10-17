@@ -14,10 +14,15 @@ export class AppartmentsService {
     private readonly apiService: ApiService,
   ) {}
 
-  async updateAppartmentsList() {
-    const appartmentList = await this.apiService.getAppartmentList();
+  public async updateAppartmentsList() {
+    const appartmentsList = await this.apiService.getAppartmenstList();
 
-    for await (const appartment of appartmentList) {
+    if (!appartmentsList) {
+      this.logger.error('Error while fetching appartments list');
+      return;
+    }
+
+    for await (const appartment of appartmentsList) {
       const { id, address, description, debt } = appartment;
       const appartmentEntity = await this.appartmentModel.findOne({ _id: id });
       if (!appartmentEntity) {
@@ -29,12 +34,26 @@ export class AppartmentsService {
     this.logger.log('Appartments were updated!');
   }
 
-  async getAppartmentsList() {
+  public async getAppartmentsList() {
     return this.appartmentModel.find().exec();
   }
 
-  async createAppartment(id, address, description, debt = 0) {
+  public async getAppartmentById(appartmentId: string) {
+    return await this.appartmentModel.findOne({
+      _id: appartmentId,
+    });
+  }
+
+  private async createAppartment(id, address, description, debt = 0) {
     const { accounts } = await this.apiService.getAppartmentAccounts(id);
+
+    if (!accounts) {
+      this.logger.error(
+        'Error while creating appartment: no accounts retrieved',
+      );
+      return;
+    }
+
     const newEntity = await new this.appartmentModel({
       _id: id,
       address: address,
@@ -44,11 +63,5 @@ export class AppartmentsService {
     });
     await newEntity.save();
     return newEntity;
-  }
-
-  async getAppartmentById(appartmentId: string) {
-    return await this.appartmentModel.findOne({
-      _id: appartmentId,
-    });
   }
 }
