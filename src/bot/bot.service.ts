@@ -6,7 +6,7 @@ import PQueue from 'p-queue';
 import { AccountsService } from 'src/accounts/accounts.service';
 import { AccrualsService } from 'src/accruals/accruals.service';
 import { AppartmentsService } from 'src/appartments/appartments.service';
-import { BotCommands, MIN_SUPPORTED_PERIOD_CODE } from 'src/assets/constants';
+import { BotCommands } from 'src/assets/constants';
 import { InvoiceService } from 'src/invoices/invoices.service';
 import { Stream } from 'stream';
 import {
@@ -16,6 +16,7 @@ import {
   UpdateAppartmentsProps,
   UpdateInvoicesProps,
 } from './bot.types';
+import { GroupManagerService } from './groupManager.service';
 
 const CB_QUERY_REGEXP = /(?<chatId>\w+)(\/)(?<method>\w+)(\/)?(?<data>\w+)?/;
 
@@ -24,6 +25,10 @@ export class BotService {
   private readonly bot: TelegramBot;
   private readonly pQueue: PQueue;
   private readonly logger = new Logger(BotService.name);
+  private readonly groupManager: GroupManagerService;
+  private readonly minSupportedPeriodCode = this.configService.get(
+    'MIN_SUPPORTED_PERIOD_CODE',
+  );
 
   constructor(
     private readonly configService: ConfigService,
@@ -33,6 +38,7 @@ export class BotService {
     private readonly invoiceService: InvoiceService,
   ) {
     this.bot = this.setupBot();
+    this.groupManager = this.setupGroupManager();
     this.pQueue = new PQueue({
       concurrency: 1,
       interval: 3000,
@@ -70,6 +76,20 @@ export class BotService {
     bot.on('callback_query', this.handleCallbackQuery);
 
     return bot;
+  }
+
+  private setupGroupManager() {
+    const groupChatId = this.configService.get<number>(
+      'TELEGRAM_GROUP_CHAT_ID',
+    );
+
+    if (!groupChatId) {
+      const envError = 'TELEGRAM_GROUP_CHAT_ID is not specified in environment';
+      this.logger.error(envError);
+      throw new Error(envError);
+    }
+
+    return new GroupManagerService(this.bot, this.pQueue, groupChatId);
   }
 
   private handleCallbackQuery = async (msg: TelegramBot.CallbackQuery) => {
@@ -191,7 +211,7 @@ export class BotService {
           await this.accrualsService.getAccrualsForAccount(account._id);
 
         for await (const accrual of accountAccruals) {
-          if (accrual.periodId < MIN_SUPPORTED_PERIOD_CODE) {
+          if (accrual.periodId < this.minSupportedPeriodCode) {
             continue;
           }
 
@@ -274,7 +294,7 @@ export class BotService {
         return keyboardOptions;
       }
 
-      if (accrual.periodId < MIN_SUPPORTED_PERIOD_CODE) {
+      if (accrual.periodId < this.minSupportedPeriodCode) {
         return keyboardOptions;
       }
       const hasMultipleAccounts = accounts.length > 1;
