@@ -25,15 +25,17 @@ export class AccrualsService {
   }
 
   async getAccrualsForAppartment(appartmentId: string) {
-    return await this.accrualModel
+    const accruals = await this.accrualModel
       .find({
         appartmentId,
       })
       .exec();
+
+    return accruals.sort((a, b) => a.periodId - b.periodId);
   }
 
   async updateAccrualsForAccount(accountId) {
-    this.logger.log(`Updating accruals for account: ${accountId}`);
+    this.logger.log(`Updating accruals for accountId: ${accountId}`);
 
     const account = await this.accountService.findOne({ _id: accountId });
     if (!account) {
@@ -41,20 +43,22 @@ export class AccrualsService {
       return;
     }
 
-    const accruals = await this.apiService.getAccountAccruals(accountId);
-    if (!accruals) {
+    const fetchedAccruals = await this.apiService.getAccountAccruals(accountId);
+    if (!fetchedAccruals) {
       this.logger.error(`Failed to get accruals for ${account.address}`);
       return;
     }
 
     const dbAccruals = await this.getAccrualsForAccount(accountId);
-    const accrualsToSave = accruals.filter(
-      (accrual) =>
-        !dbAccruals.some(
-          (dbAccrual) =>
-            dbAccrual.accountId === accrual.accountId &&
-            dbAccrual.periodId === accrual.periodId,
-        ),
+    const accrualsToSave = fetchedAccruals.filter(
+      (fetchedAccrual) =>
+        !dbAccruals.some((dbAccrual) => {
+          const isDbAccrualEqual =
+            dbAccrual.accountId === fetchedAccrual.accountId &&
+            dbAccrual.periodId === fetchedAccrual.periodId;
+
+          return isDbAccrualEqual;
+        }),
     );
 
     for await (const accrual of accrualsToSave) {
@@ -69,6 +73,11 @@ export class AccrualsService {
         payed,
         invoiceExists,
       } = accrual;
+
+      this.logger.log(
+        `Found new accrual: \naccountId: ${accountId}\nperiodId: ${periodId}\naddress: ${account.address}`,
+      );
+
       await this.create({
         accountId,
         appartmentId: account.appartmentId,

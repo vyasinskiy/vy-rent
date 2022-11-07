@@ -188,21 +188,11 @@ export class BotService {
 
     const appartmentsList = await this.appartmentsService.getAppartmentsList();
 
-    this.logger.log(
-      'Appartments found: \n' +
-        appartmentsList.map((appartment) => appartment.address + '\n'),
-    );
-
     const newInvoices: Record<string, string>[] = [];
 
     for (const appartment of appartmentsList) {
       const accounts = await this.accountsService.getAccountsForAppartment(
         appartment._id,
-      );
-
-      this.logger.log(
-        `Accounts found for appartment ${appartment.address}:\n` +
-          accounts.map((account) => account.organizationName + '\n'),
       );
 
       for await (const account of accounts) {
@@ -265,10 +255,10 @@ export class BotService {
           separatedPeriodCode,
         );
       }
+    } else {
+      await this.sendMessage(chatId, 'Квитанции обновлены.');
     }
-
     this.logger.log('Invoices are updated!');
-    await this.sendMessage(chatId, 'Квитанции обновлены.');
   }
 
   private async onUpdateAppartments(props: UpdateAppartmentsProps) {
