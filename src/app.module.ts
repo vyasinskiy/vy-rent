@@ -8,6 +8,7 @@ import { InvoicesModule } from './invoices/invoices.module';
 import { ApiModule } from './api/api.module';
 import { AppartmentsModule } from './appartments/appartments.module';
 import { AuthModule } from './auth/auth.module';
+import { AppService } from './app.service';
 import { BotModule } from './bot/bot.module';
 
 @Module({
@@ -29,5 +30,7 @@ import { BotModule } from './bot/bot.module';
       }),
     }),
   ],
+  providers: [AppService],
+  exports: [AppService],
 })
 export class AppModule {}

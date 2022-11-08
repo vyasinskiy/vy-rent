@@ -3,11 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import TelegramBot from 'node-telegram-bot-api';
 import PQueue from 'p-queue';
-import { AccountsService } from 'src/accounts/accounts.service';
-import { AccrualsService } from 'src/accruals/accruals.service';
-import { AppartmentsService } from 'src/appartments/appartments.service';
+import { AppService } from 'src/app.service';
 import { BotCommands } from 'src/assets/constants';
-import { InvoiceService } from 'src/invoices/invoices.service';
 import { Stream } from 'stream';
 import {
   GetAppartmentsProps,
@@ -16,7 +13,6 @@ import {
   UpdateAppartmentsProps,
   UpdateInvoicesProps,
 } from './bot.types';
-import { GroupManagerService } from './groupManager.service';
 
 const CB_QUERY_REGEXP = /(?<chatId>\w+)(\/)(?<method>\w+)(\/)?(?<data>\w+)?/;
 
@@ -25,20 +21,15 @@ export class BotService {
   private readonly bot: TelegramBot;
   private readonly pQueue: PQueue;
   private readonly logger = new Logger(BotService.name);
-  private readonly groupManager: GroupManagerService;
   private readonly minSupportedPeriodCode = this.configService.get(
     'MIN_SUPPORTED_PERIOD_CODE',
   );
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly accountsService: AccountsService,
-    private readonly appartmentsService: AppartmentsService,
-    private readonly accrualsService: AccrualsService,
-    private readonly invoiceService: InvoiceService,
+    private readonly appService: AppService,
   ) {
     this.bot = this.setupBot();
-    this.groupManager = this.setupGroupManager();
     this.pQueue = new PQueue({
       concurrency: 1,
       interval: 3000,
@@ -76,20 +67,6 @@ export class BotService {
     bot.on('callback_query', this.handleCallbackQuery);
 
     return bot;
-  }
-
-  private setupGroupManager() {
-    const groupChatId = this.configService.get<number>(
-      'TELEGRAM_GROUP_CHAT_ID',
-    );
-
-    if (!groupChatId) {
-      const envError = 'TELEGRAM_GROUP_CHAT_ID is not specified in environment';
-      this.logger.error(envError);
-      throw new Error(envError);
-    }
-
-    return new GroupManagerService(this.bot, this.pQueue, groupChatId);
   }
 
   private handleCallbackQuery = async (msg: TelegramBot.CallbackQuery) => {
@@ -158,7 +135,7 @@ export class BotService {
   private async onGetAppartments(props: GetAppartmentsProps) {
     const { chatId } = props;
 
-    const appartmentsList = await this.appartmentsService.getAppartmentsList();
+    const appartmentsList = await this.appService.getAppartmentsList();
     const keyboardOptions = appartmentsList.map((appartment) => [
       {
         text: appartment.address.replace('г Краснодар, ', ''),
@@ -173,67 +150,11 @@ export class BotService {
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
-  private async onUpdateInvoices(props?: UpdateInvoicesProps) {
-    this.logger.log('Udating invoices...');
-
+  private async onUpdateInvoices(props: UpdateInvoicesProps) {
     const groupChatId = this.getGroupChatId();
-    const chatId = props?.chatId ?? groupChatId;
+    const chatId = props.chatId ?? groupChatId;
 
-    if (!chatId) {
-      this.logger.error(
-        'Error while updating invoices: "chatId" is not specified',
-      );
-      return;
-    }
-
-    const appartmentsList = await this.appartmentsService.getAppartmentsList();
-
-    const newInvoices: Record<string, string>[] = [];
-
-    for (const appartment of appartmentsList) {
-      const accounts = await this.accountsService.getAccountsForAppartment(
-        appartment._id,
-      );
-
-      for await (const account of accounts) {
-        await this.accrualsService.updateAccrualsForAccount(account._id);
-        const accountAccruals =
-          await this.accrualsService.getAccrualsForAccount(account._id);
-
-        for await (const accrual of accountAccruals) {
-          if (accrual.periodId < this.minSupportedPeriodCode) {
-            continue;
-          }
-
-          const isInvoiceDownloaded =
-            await this.invoiceService.checkIsInvoiceDownloaded(
-              accrual.appartmentId,
-              accrual.accountId,
-              accrual.periodId,
-            );
-
-          if (!isInvoiceDownloaded && accrual.invoiceExists) {
-            this.logger.log(`Found new invoice for ${appartment.address}!`);
-            const invoice = await this.invoiceService.fetchInvoiceForPeriod(
-              accrual.accountId,
-              accrual.periodId,
-            );
-            const { invoicePath, separatedPeriodCode } =
-              await this.invoiceService.makeInvoicePath(
-                accrual.appartmentId,
-                accrual.accountId,
-                accrual.periodId,
-              );
-            await this.invoiceService.saveInvoice(invoice, invoicePath);
-            newInvoices.push({
-              invoicePath,
-              separatedPeriodCode,
-              address: appartment.address,
-            });
-          }
-        }
-      }
-    }
+    const newInvoices = await this.appService.getNewInvoices();
 
     const isScheduledUpdate = !props;
 
@@ -248,22 +169,18 @@ export class BotService {
 
       for await (const newInvoice of newInvoices) {
         const { invoicePath, address, separatedPeriodCode } = newInvoice;
-        await this.sendInvoice(
-          groupChatId,
-          invoicePath,
-          address,
-          separatedPeriodCode,
-        );
+        const message = `Получена квитанция:\n\nАдрес:\n${address}\n\nПериод:\n${separatedPeriodCode}`;
+
+        await this.sendInvoice(groupChatId, invoicePath, message);
       }
     } else {
       await this.sendMessage(chatId, 'Квитанции обновлены.');
     }
-    this.logger.log('Invoices are updated!');
   }
 
   private async onUpdateAppartments(props: UpdateAppartmentsProps) {
     const { chatId } = props;
-    await this.appartmentsService.updateAppartmentsList();
+    await this.appService.updateAppartmentsList();
     await this.sendMessage(
       chatId,
       `Квартиры синхронизированы с сервисом Квартплата онлайн.`,
@@ -272,10 +189,10 @@ export class BotService {
 
   private async onGetPeriod(props: GetPeriodProps) {
     const { chatId, data: appartmentId } = props;
-    const accruals = await this.accrualsService.getAccrualsForAppartment(
+    const accruals = await this.appService.getAccrualsForAppartment(
       appartmentId,
     );
-    const accounts = await this.accountsService.getAccountsForAppartment(
+    const accounts = await this.appService.getAccountsForAppartment(
       appartmentId,
     );
 
@@ -335,9 +252,7 @@ export class BotService {
 
     const { appartmentId, accountId, periodCode } = match.groups;
 
-    const appartment = await this.appartmentsService.getAppartmentById(
-      appartmentId,
-    );
+    const appartment = await this.appService.getAppartmentById(appartmentId);
 
     if (!appartment) {
       return this.logger.error(
@@ -345,51 +260,19 @@ export class BotService {
       );
     }
 
-    const isInvoiceDownloaded =
-      await this.invoiceService.checkIsInvoiceDownloaded(
-        appartmentId,
-        accountId,
-        periodCode,
-      );
-
-    if (!isInvoiceDownloaded) {
-      await this.invoiceService.downloadInvoice(
-        appartmentId,
-        accountId,
-        periodCode,
-      );
-    }
-
     const { invoicePath, separatedPeriodCode } =
-      await this.invoiceService.makeInvoicePath(
-        appartmentId,
-        accountId,
-        periodCode,
-      );
+      await this.appService.getInvoice(appartmentId, accountId, periodCode);
 
-    await this.sendInvoice(
-      chatId,
-      invoicePath,
-      appartment.address,
-      separatedPeriodCode,
-    );
+    const message = `Получена квитанция:\n\nАдрес:\n${appartment.address}\n\nПериод:\n${separatedPeriodCode}`;
+
+    await this.sendInvoice(chatId, invoicePath, message);
   }
 
-  private async sendInvoice(
-    chatId: number,
-    invoicePath: string,
-    address: string,
-    separatedPeriodCode: string,
-  ) {
-    this.logger.log(
-      `Sending document:\nAddress: ${address}\nPeriod: ${separatedPeriodCode}\n...`,
-    );
+  private async sendInvoice(chatId: number, docPath: string, message: string) {
+    this.logger.log(`Sending document:\nPath: ${docPath}\nMessage: ${message}`);
 
-    await this.sendMessage(
-      chatId,
-      `Получена квитанция:\n\nАдрес:\n${address}\n\nПериод:\n${separatedPeriodCode}`,
-    );
-    await this.sendDocument(chatId, invoicePath);
+    await this.sendMessage(chatId, message);
+    await this.sendDocument(chatId, docPath);
   }
 
   private getGroupChatId() {
