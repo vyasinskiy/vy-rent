@@ -178,6 +178,7 @@ export class BotService {
     }
   }
 
+  @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
   private async onUpdateAppartments(props: UpdateAppartmentsProps) {
     const { chatId } = props;
     await this.appService.updateAppartmentsList();

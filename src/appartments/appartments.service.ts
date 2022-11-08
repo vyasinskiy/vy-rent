@@ -28,7 +28,16 @@ export class AppartmentsService {
       if (!appartmentEntity) {
         await this.createAppartment(id, address, description, debt);
       } else {
-        // recursively check changies
+        for await (const [key, value] of Object.entries(appartment)) {
+          const dbValue = appartmentEntity[key];
+
+          if ((dbValue && value !== dbValue) || dbValue instanceof Object) {
+            debugger;
+            await appartmentEntity.updateOne({
+              [key]: value,
+            });
+          }
+        }
       }
     }
     this.logger.log('Appartments were updated!');
