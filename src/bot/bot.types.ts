@@ -9,5 +9,5 @@ export type BotHandlerProps<T> = {
 export type GetInvoiceProps = BotHandlerProps<string>;
 export type GetPeriodProps = BotHandlerProps<string>;
 export type GetAppartmentsProps = BotHandlerProps<never>;
+export type GetDebstProps = BotHandlerProps<never>;
 export type UpdateInvoicesProps = BotHandlerProps<never>;
-export type UpdateAppartmentsProps = BotHandlerProps<never>;

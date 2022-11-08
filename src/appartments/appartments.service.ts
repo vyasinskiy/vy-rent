@@ -32,7 +32,6 @@ export class AppartmentsService {
           const dbValue = appartmentEntity[key];
 
           if ((dbValue && value !== dbValue) || dbValue instanceof Object) {
-            debugger;
             await appartmentEntity.updateOne({
               [key]: value,
             });

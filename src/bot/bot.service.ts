@@ -8,9 +8,9 @@ import { BotCommands } from 'src/assets/constants';
 import { Stream } from 'stream';
 import {
   GetAppartmentsProps,
+  GetDebstProps,
   GetInvoiceProps,
   GetPeriodProps,
-  UpdateAppartmentsProps,
   UpdateInvoicesProps,
 } from './bot.types';
 
@@ -32,7 +32,7 @@ export class BotService {
     this.bot = this.setupBot();
     this.pQueue = new PQueue({
       concurrency: 1,
-      interval: 3000,
+      interval: 1000,
       intervalCap: 1,
     });
   }
@@ -117,8 +117,8 @@ export class BotService {
           ],
           [
             {
-              text: 'Обновить квартиры',
-              callback_data: `${chatId}/UpdateAppartments`,
+              text: 'Состояние задолженности',
+              callback_data: `${chatId}/GetDebts`,
             },
           ],
           [
@@ -149,6 +149,7 @@ export class BotService {
     });
   }
 
+  // TODO: Replace CRON to App.service
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
   private async onUpdateInvoices(props: UpdateInvoicesProps) {
     const groupChatId = this.getGroupChatId();
@@ -176,16 +177,6 @@ export class BotService {
     } else {
       await this.sendMessage(chatId, 'Квитанции обновлены.');
     }
-  }
-
-  @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
-  private async onUpdateAppartments(props: UpdateAppartmentsProps) {
-    const { chatId } = props;
-    await this.appService.updateAppartmentsList();
-    await this.sendMessage(
-      chatId,
-      `Квартиры синхронизированы с сервисом Квартплата онлайн.`,
-    );
   }
 
   private async onGetPeriod(props: GetPeriodProps) {
@@ -267,6 +258,16 @@ export class BotService {
     const message = `Получена квитанция:\n\nАдрес:\n${appartment.address}\n\nПериод:\n${separatedPeriodCode}`;
 
     await this.sendInvoice(chatId, invoicePath, message);
+  }
+
+  private async onGetDebts(props: GetDebstProps) {
+    const { chatId } = props;
+    const debts = await this.appService.getDebts();
+
+    for await (const debt of debts) {
+      const message = `Адрес: ${debt.address}\nЗадолженность: ${debt.debt}`;
+      this.sendMessage(chatId, message);
+    }
   }
 
   private async sendInvoice(chatId: number, docPath: string, message: string) {

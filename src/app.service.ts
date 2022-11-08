@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { AccountsService } from 'src/accounts/accounts.service';
 import { AccrualsService } from 'src/accruals/accruals.service';
 import { AppartmentsService } from 'src/appartments/appartments.service';
@@ -86,6 +87,19 @@ export class AppService {
     return newInvoices;
   }
 
+  public async getDebts() {
+    await this.updateAppartmentsList();
+    const appartments = await this.appartmentsService.getAppartmentsList();
+
+    return appartments
+      .filter((appartment) => appartment.debt > 0)
+      .map((appartment) => ({
+        address: appartment.address,
+        debt: appartment.debt,
+      }));
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_7AM)
   public async updateAppartmentsList() {
     return await this.appartmentsService.updateAppartmentsList();
   }
