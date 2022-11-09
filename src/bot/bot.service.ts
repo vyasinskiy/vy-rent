@@ -149,15 +149,14 @@ export class BotService {
     });
   }
 
-  // TODO: Replace CRON to App.service
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
   private async onUpdateInvoices(props: UpdateInvoicesProps) {
+    const isScheduledUpdate = !props;
+
     const groupChatId = this.getGroupChatId();
-    const chatId = props.chatId ?? groupChatId;
+    const chatId = isScheduledUpdate ? groupChatId : props.chatId;
 
     const newInvoices = await this.appService.getNewInvoices();
-
-    const isScheduledUpdate = !props;
 
     if (isScheduledUpdate) {
       const groupChatId = this.configService.get('TELEGRAM_GROUP_CHAT_ID');
@@ -283,10 +282,9 @@ export class BotService {
     );
 
     if (!groupChatId) {
-      this.logger.error(
+      throw new Error(
         'TELEGRAM_GROUP_CHAT_ID key is not specified in environment',
       );
-      return;
     }
 
     return groupChatId;
