@@ -28,7 +28,7 @@ export interface AppartmentAccount {
   blockUntil: Date;
 }
 
-interface AccountData {
+export interface AccrualData {
   accountId: number;
   periodName: string;
   periodId: number;
@@ -62,7 +62,7 @@ export class ApiService {
 
   public async getAccountAccruals(accountId) {
     const URL = `${baseProviderURL}/personal/Accruals/List?accountId=${accountId}`;
-    const data = await this.doRequest<AccountData>(URL);
+    const data = await this.doRequest<AccrualData>(URL);
     return data;
   }
 
