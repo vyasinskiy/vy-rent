@@ -3,7 +3,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { AccountsService } from 'src/accounts/accounts.service';
 import { AccrualData, ApiService } from 'src/api/api.service';
-import { isEqual } from 'src/assets/helpers';
+import { MIN_SUPPORTED_PERIOD_CODE } from 'src/assets/constants';
+import { areDeepEqual } from 'src/assets/helpers';
 import { Accrual, AccrualDocument } from './accruals.schema';
 
 type AccrualProperties = Omit<AccrualData, 'button'> & { appartmentId: number };
@@ -61,6 +62,10 @@ export class AccrualsService {
     }[] = [];
 
     for (const fetchedAccrual of fetchedAccruals) {
+      if (fetchedAccrual.periodId < MIN_SUPPORTED_PERIOD_CODE) {
+        continue;
+      }
+
       const dbAccrual = dbAccruals.find(
         (dbAccrual) =>
           dbAccrual.accountId === fetchedAccrual.accountId &&
@@ -76,7 +81,7 @@ export class AccrualsService {
         continue;
       }
 
-      const areAccrualsEqual = isEqual(fetchedAccrual, dbAccrual);
+      const areAccrualsEqual = areDeepEqual(fetchedAccrual, dbAccrual);
       if (!areAccrualsEqual) {
         const log =
           'Found accrual with updates:\n' +

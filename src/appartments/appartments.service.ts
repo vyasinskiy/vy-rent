@@ -39,7 +39,7 @@ export class AppartmentsService {
         }
       }
     }
-    this.logger.log('Appartments were updated!');
+    this.logger.log('Appartments are updated!');
   }
 
   public async getAppartmentsList() {

@@ -5,6 +5,7 @@ import { AccountsService } from 'src/accounts/accounts.service';
 import { AccrualsService } from 'src/accruals/accruals.service';
 import { AppartmentsService } from 'src/appartments/appartments.service';
 import { InvoiceService } from 'src/invoices/invoices.service';
+import { MIN_SUPPORTED_PERIOD_CODE } from './assets/constants';
 
 interface InvoiceData {
   invoicePath: string;
@@ -15,9 +16,6 @@ interface InvoiceData {
 @Injectable()
 export class AppService {
   private readonly logger = new Logger(AppService.name);
-  private readonly minSupportedPeriodCode = this.configService.get(
-    'MIN_SUPPORTED_PERIOD_CODE',
-  );
 
   constructor(
     private readonly configService: ConfigService,
@@ -49,7 +47,7 @@ export class AppService {
           await this.accrualsService.getAccrualsForAccount(account._id);
 
         for await (const accrual of accountAccruals) {
-          if (accrual.periodId < this.minSupportedPeriodCode) {
+          if (accrual.periodId < MIN_SUPPORTED_PERIOD_CODE) {
             continue;
           }
 

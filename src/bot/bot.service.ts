@@ -4,7 +4,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import TelegramBot from 'node-telegram-bot-api';
 import PQueue from 'p-queue';
 import { AppService } from 'src/app.service';
-import { BotCommands } from 'src/assets/constants';
+import { BotCommands, MIN_SUPPORTED_PERIOD_CODE } from 'src/assets/constants';
 import { Stream } from 'stream';
 import {
   GetAppartmentsProps,
@@ -21,9 +21,6 @@ export class BotService {
   private readonly bot: TelegramBot;
   private readonly pQueue: PQueue;
   private readonly logger = new Logger(BotService.name);
-  private readonly minSupportedPeriodCode = this.configService.get(
-    'MIN_SUPPORTED_PERIOD_CODE',
-  );
 
   constructor(
     private readonly configService: ConfigService,
@@ -192,7 +189,7 @@ export class BotService {
         return keyboardOptions;
       }
 
-      if (accrual.periodId < this.minSupportedPeriodCode) {
+      if (accrual.periodId < MIN_SUPPORTED_PERIOD_CODE) {
         return keyboardOptions;
       }
       const hasMultipleAccounts = accounts.length > 1;

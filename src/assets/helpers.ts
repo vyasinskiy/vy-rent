@@ -14,6 +14,6 @@ export function cleanWhiteSpaces(string) {
   return string.replace(/ /g, '');
 }
 
-export function isEqual(obj1, obj2) {
+export function areDeepEqual(obj1, obj2) {
   return Object.entries(obj1).toString() === Object.entries(obj2).toString();
 }
