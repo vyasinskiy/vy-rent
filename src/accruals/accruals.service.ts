@@ -4,8 +4,8 @@ import { Model } from 'mongoose';
 import { AccountsService } from 'src/accounts/accounts.service';
 import { AccrualData, ApiService } from 'src/api/api.service';
 import { MIN_SUPPORTED_PERIOD_CODE } from 'src/assets/constants';
-import { areDeepEqual } from 'src/assets/helpers';
 import { Accrual, AccrualDocument } from './accruals.schema';
+import _ from 'lodash';
 
 type AccrualProperties = Omit<AccrualData, 'button'> & { appartmentId: number };
 
@@ -81,7 +81,7 @@ export class AccrualsService {
         continue;
       }
 
-      const areAccrualsEqual = areDeepEqual(fetchedAccrual, dbAccrual);
+      const areAccrualsEqual = _.isEqual(fetchedAccrual, dbAccrual);
       if (!areAccrualsEqual) {
         const log =
           'Found accrual with updates:\n' +
