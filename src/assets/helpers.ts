@@ -13,3 +13,17 @@ export function cleanWhiteSpaces(string) {
 
   return string.replace(/ /g, '');
 }
+
+export function omit(target, omitKeys) {
+  if (typeof target !== 'object') {
+    return;
+  }
+
+  for (const key in target) {
+    if (omitKeys.includes(key)) {
+      delete target[key];
+    }
+  }
+
+  return target;
+}

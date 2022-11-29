@@ -6,6 +6,7 @@ import { AccrualData, ApiService } from 'src/api/api.service';
 import { MIN_SUPPORTED_PERIOD_CODE } from 'src/assets/constants';
 import { Accrual, AccrualDocument } from './accruals.schema';
 import _ from 'lodash';
+import { omit } from 'src/assets/helpers';
 
 type AccrualProperties = Omit<AccrualData, 'button'> & { appartmentId: number };
 
@@ -81,7 +82,11 @@ export class AccrualsService {
         continue;
       }
 
-      const areAccrualsEqual = _.isEqual(fetchedAccrual, dbAccrual);
+      const areAccrualsEqual = _.isEqual(
+        omit(fetchedAccrual, ['button']),
+        omit(dbAccrual.toObject(), ['_id', '__v', 'appartmentId']),
+      );
+
       if (!areAccrualsEqual) {
         const log =
           'Found accrual with updates:\n' +
