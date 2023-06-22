@@ -1,0 +1,37 @@
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/vy-rent:latest
+
+      # - name: Read docker-compose file for production
+      #   id: read_docker_compose_prod
+      #   uses: andstor/file-reader-action@v1
+      #   with:
+      #     path: 'docker-compose.prod.yml'
+
+      # TODO: Next steps with ssh deployment:
+      # https://stanleymasinde.medium.com/ssh-deployment-with-github-actions-f2274269d9f3
