@@ -10,6 +10,7 @@ import { AppartmentsModule } from './appartments/appartments.module';
 import { AuthModule } from './auth/auth.module';
 import { AppService } from './app.service';
 import { BotModule } from './bot/bot.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -32,5 +33,6 @@ import { BotModule } from './bot/bot.module';
   ],
   providers: [AppService],
   exports: [AppService],
+  controllers: [AppController],
 })
 export class AppModule {}
